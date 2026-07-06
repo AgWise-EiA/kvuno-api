@@ -2,7 +2,6 @@
 Housekeeping script that processes RDS files and inserts data into the database
 """
 import concurrent.futures
-import logging
 import os
 import time
 
