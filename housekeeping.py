@@ -16,6 +16,7 @@ from app.models.kvuno import ProcessedFiles
 from app.repo.crop_data import CropDataRepo
 from app.repo.processed_files import ProcessedFilesRepo
 from app.utils import calculate_file_checksum
+from app.utils.downloader import RDSDownloader
 from app.utils.logging import SharedLogger
 
 # Load environment variables from .env file
@@ -122,20 +123,89 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
                 logger.info(f"Processing file {file_name} took {elapsed_time:.2f} seconds")
 
 
+def download_remote_files(data_folder: str) -> list[str]:
+    """
+    Downloads remote RDS files defined in the REMOTE_RDS_URLS environment variable.
+
+    URLs should be semicolon-delimited. Optional auth can be configured via:
+      - REMOTE_RDS_TOKEN: Bearer token
+      - REMOTE_RDS_COOKIES: Comma-separated key=value pairs
+      - REMOTE_RDS_HEADERS: Comma-separated key:value pairs
+
+    Download errors are logged and skipped gracefully.
+
+    Args:
+        data_folder (str): Directory to save downloaded files into.
+
+    Returns:
+        list[str]: Paths of successfully downloaded files.
+    """
+    urls_raw = os.getenv("REMOTE_RDS_URLS", "").strip()
+    if not urls_raw:
+        logger.info("No REMOTE_RDS_URLS defined, skipping remote download")
+        return []
+
+    urls = [u.strip() for u in urls_raw.split(";") if u.strip()]
+    logger.info(f"Found {len(urls)} remote RDS URL(s) to download")
+
+    token = os.getenv("REMOTE_RDS_TOKEN")
+    cookies_raw = os.getenv("REMOTE_RDS_COOKIES")
+    headers_raw = os.getenv("REMOTE_RDS_HEADERS")
+
+    cookies = {}
+    if cookies_raw:
+        for pair in cookies_raw.split(","):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                cookies[k.strip()] = v.strip()
+
+    headers = {}
+    if headers_raw:
+        for pair in headers_raw.split(","):
+            if ":" in pair:
+                k, v = pair.split(":", 1)
+                headers[k.strip()] = v.strip()
+
+    downloader = RDSDownloader(data_dir=data_folder, logger=logger)
+    if token:
+        downloader.set_bearer_token(token)
+    if cookies:
+        downloader.set_cookies(cookies)
+    if headers:
+        downloader.set_headers(headers)
+
+    downloaded = []
+    for url in urls:
+        try:
+            path = downloader.download(url)
+            downloaded.append(path)
+        except Exception as e:
+            logger.warning(f"Skipping failed download {url}: {e}")
+
+    logger.info(f"Downloaded {len(downloaded)}/{len(urls)} remote file(s)")
+    return downloaded
+
+
 def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000):
     """
     Loads and processes all RDS files from a specified directory by submitting them for processing
     using a process pool executor. Each file is processed in a separate process.
+
+    Remote RDS files defined in the REMOTE_RDS_URLS env var are downloaded first.
 
     Args:
         data_folder (str): The directory containing the RDS files to be processed.
         batch_size (int): The number of records to batch insert into the database. Defaults to 1000.
         chunk_size (int): The number of rows to read at a time from each RDS file. Defaults to 10000.
     """
+    os.makedirs(data_folder, exist_ok=True)
+    global_start_time = time.time()
+
+    download_remote_files(data_folder)
+
     file_paths = [os.path.join(data_folder, f) for f in os.listdir(data_folder) if f.endswith('.RDS')]
 
-    global_start_time = time.time()  # Start timing
-    logger.info(f"Starting to process {len(file_paths)} files from {data_folder}")
+    logger.info(f"Starting to process {len(file_paths)} file(s) from {data_folder}")
 
     with app.app_context():
         with concurrent.futures.ThreadPoolExecutor() as executor:
