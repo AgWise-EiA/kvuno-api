@@ -1,34 +1,43 @@
-[tool.poetry]
+[project]
 name = "kvuno-api"
 version = "1.0.0"
-description = ""
-authors = ["Munywele S <barsamms@gmail.com>"]
+description = "KVUNO api"
+authors = [
+    {name = "masgeek",email = "barsamms@gmail.com"}
+]
 readme = "README.md"
-package-mode = false
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "flask (>=3.1.3,<4.0.0)",
+    "pyreadr (>=0.5.6,<0.6.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "loguru (>=0.7.3,<0.8.0)",
+    "waitress (>=3.0.2,<4.0.0)",
+    "gunicorn (>=26.0.0,<27.0.0)",
+    "pandas (>=3.0.3,<4.0.0)",
+    "flask-sqlalchemy (>=3.1.1,<4.0.0)",
+    "flask-limiter (>=4.1.1)",
+    "flask-cors (>=6.0.5,<7.0.0)",
+    "pymysql (>=1.2.0,<2.0.0)",
+    "psycopg2-binary (>=2.9.12,<3.0.0)",
+    "flask-openapi3[all] (>=4.3.2,<5.0.0)",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-flask = "^3.0.3"
-pyreadr = "0.5.0"
-python-dotenv = "^1.0.1"
-loguru = "^0.7.2"
-flask-openapi3 = { extras = ["all"], version = "^3.1.3" }
-flask-limiter = "^3.8.0"
-waitress = "^3.0.0"
-gunicorn = "^23.0.0"
-pandas = "^2.2.2"
-flask-sqlalchemy = "^3.1.1"
-pymysql = "^1.1.1"
-flask-cors = "^5"
-#apiflask = "^2.2.0"
-psycopg2-binary = "^2.9.9"
-
-
-[tool.poetry.group.dev.dependencies]
-alembic = "^1.13.2"
-sqlacodegen = {extras = ["geoalchemy2"], version = "^3.0.0rc5", allow-prereleases = true}
-pylint = "^3.2.6"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pylint (>=4.0.6,<5.0.0)",
+    "sqlacodegen[geoalchemy2] (>=4.0.4,<5.0.0)",
+    "alembic (>=1.18.5,<2.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+sqlacodegen = {allow-prereleases = true}
+
