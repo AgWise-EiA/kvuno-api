@@ -61,5 +61,5 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ steps.docker_tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ inputs.image_name }}:cache-${{ inputs.branch_name }}
+          cache-to: type=registry,ref=${{ inputs.image_name }}:cache-${{ inputs.branch_name }},mode=max
