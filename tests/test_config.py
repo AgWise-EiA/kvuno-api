@@ -1,4 +1,3 @@
-import logging
 
 from app.config import build_db_url
 
