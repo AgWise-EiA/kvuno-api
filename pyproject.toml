@@ -37,7 +37,8 @@ dev = [
     "pylint (>=4.0.6,<5.0.0)",
     "sqlacodegen[geoalchemy2] (>=4.0.4,<5.0.0)",
     "alembic (>=1.18.5,<2.0.0)",
-    "pandas-stubs (>=3.0.3,<3.1.0)"
+    "pandas-stubs (>=3.0.3,<3.1.0)",
+    "ruff (>=0.15.20,<0.16.0)"
 ]
 
 [tool.poetry]
