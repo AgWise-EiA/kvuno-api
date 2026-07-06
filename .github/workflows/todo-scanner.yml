@@ -1,4 +1,4 @@
-name: TODO workflow
+name: TODO Scanner
 on:
   push:
       branches:

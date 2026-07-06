@@ -1,4 +1,4 @@
-name: DockerBuildJob
+name: Docker Build Reusable
 
 on:
   workflow_call:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     concurrency:
       cancel-in-progress: true
-      group: docker-build-job-${{ inputs.branch_ref }}
+      group: docker-build-reusable-${{ inputs.branch_ref }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
