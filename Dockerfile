@@ -12,7 +12,7 @@ RUN pip install poetry
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the pyproject-old.toml and poetry.lock files into the container
+# Copy the pyproject.toml and poetry.lock files into the container
 #COPY pyproject.toml poetry.lock /app/
 COPY pyproject.toml /app/
 
