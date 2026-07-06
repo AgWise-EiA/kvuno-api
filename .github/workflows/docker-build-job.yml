@@ -33,7 +33,7 @@ jobs:
       group: docker-build-job-${{ inputs.branch_ref }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha || inputs.branch_ref }}
 
