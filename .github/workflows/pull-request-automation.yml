@@ -1,13 +1,21 @@
-name: Automatic PR review
-on: [ pull_request ]
+name: PR auto-approve
+
+on:
+  pull_request:
+    types: [ opened, reopened ]
+
 jobs:
-  pr-review:
+  auto-approve:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: >
+      github.actor == 'masgeek'
+      || github.actor == 'dependabot[bot]'
+      || github.actor == 'dependabot-preview[bot]'
     steps:
-      - name: Approve pull request
-#        if: github.actor != 'masgeek'
-        uses: andrewmusgrave/automatic-pull-request-review@0.0.5
-        with:
-          repo-token: '${{ secrets.GITHUB_TOKEN }}'
-          event: APPROVE
-          body: 'Pull request automatically approved'
+      - uses: actions/checkout@v4
+      - name: Auto-approve trusted PR
+        run: gh pr review --approve "${{ github.event.pull_request.html_url }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

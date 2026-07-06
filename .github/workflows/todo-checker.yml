@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - name: Run tdg-github-action
         uses: ribtoks/tdg-github-action@master
         with:
@@ -16,5 +16,5 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           REF: ${{ github.ref }}
-          INCLUDE_PATTERN: "\\.(py|mako)$"
+          INCLUDE_PATTERN: "\\.(py)$"
           CLOSE_ON_SAME_BRANCH: true

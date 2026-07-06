@@ -1,0 +1,53 @@
+name: DockerBuildJob
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+    secrets:
+      docker_username:
+        required: true
+      docker_password:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    concurrency:
+      cancel-in-progress: true
+      group: docker-build-job-${{ github.ref }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker login
+        uses: ./.github/actions/docker-login
+        with:
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.docker_password }}
+
+      - name: Set Docker tags
+        id: docker_tags
+        uses: ./.github/actions/set-docker-tags
+        with:
+          image_name: ${{ inputs.image_name }}
+          ref: ${{ github.ref }}
+          ref_name: ${{ github.ref_name }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.docker_tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
