@@ -4,19 +4,16 @@ from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
-class PlantingDataFilterBase:
-    coordinates: Optional[str] = Field(None, description='Coordinates in lon,lat format')
-    radius: Optional[float] = Field(None, description='Radius to search from defined coordinates in meters')
-    country: Optional[str] = Field(None, description='Country where the crop is located')
-    province: Optional[str] = Field(None, description='Province where the crop is located')
-    variety: Optional[str] = Field(None, description='Crop variety')
-    season_type: Optional[str] = Field(None, description='Type of season, e.g., Average, High')
-    opt_date: Optional[str] = Field(None, description='Optional date in YYYY-MM-DD format')
-    planting_option: Optional[int] = Field(None, description='Option for planting, typically an integer')
+class PlantingDataFilter(BaseModel):
+    coordinates: Optional[str] = Field(default=None, description='Coordinates in lon,lat format')
+    radius: Optional[float] = Field(default=None, description='Radius to search from defined coordinates in meters')
+    country: Optional[str] = Field(default=None, description='Country where the crop is located')
+    province: Optional[str] = Field(default=None, description='Province where the crop is located')
+    variety: Optional[str] = Field(default=None, description='Crop variety')
+    season_type: Optional[str] = Field(default=None, description='Type of season, e.g., Average, High')
+    opt_date: Optional[str] = Field(default=None, description='Optional date in YYYY-MM-DD format')
+    planting_option: Optional[int] = Field(default=None, description='Option for planting, typically an integer')
 
-
-# noinspection PyNestedDecorators
-class PlantingDataFilter(BaseModel, PlantingDataFilterBase):
     model_config = ConfigDict(
         use_enum_values=True,
         str_strip_whitespace=True
