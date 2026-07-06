@@ -1,9 +1,13 @@
 [project]
 name = "kvuno-api"
 version = "1.0.0"
-description = "KVUNO api"
+description = """
+Flask REST API for processing agricultural RDS files containing crop planting data.
+Ingests, deduplicates, and serves optimized sowing date information via a filterable,
+paginated API with spatial query support.
+"""
 authors = [
-    {name = "masgeek",email = "barsamms@gmail.com"}
+    { name = "masgeek", email = "barsamms@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
@@ -18,9 +22,9 @@ dependencies = [
     "flask-sqlalchemy (>=3.1.1,<4.0.0)",
     "flask-limiter (>=4.1.1)",
     "flask-cors (>=6.0.5,<7.0.0)",
-    "pymysql (>=1.2.0,<2.0.0)",
     "psycopg2-binary (>=2.9.12,<3.0.0)",
     "flask-openapi3[all] (>=4.3.2,<5.0.0)",
+    "requests (>=2.34.2,<3.0.0)"
 ]
 
 
@@ -32,12 +36,13 @@ build-backend = "poetry.core.masonry.api"
 dev = [
     "pylint (>=4.0.6,<5.0.0)",
     "sqlacodegen[geoalchemy2] (>=4.0.4,<5.0.0)",
-    "alembic (>=1.18.5,<2.0.0)"
+    "alembic (>=1.18.5,<2.0.0)",
+    "pandas-stubs (>=3.0.3,<3.1.0)"
 ]
 
 [tool.poetry]
 package-mode = false
 
 [tool.poetry.group.dev.dependencies]
-sqlacodegen = {allow-prereleases = true}
+sqlacodegen = { allow-prereleases = true }
 
