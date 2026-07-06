@@ -14,15 +14,16 @@ services:
   db:
     container_name: db
     hostname: db
-    image: mariadb:11.0.3
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_HOST: "%"
-      MARIADB_ROOT_PASSWORD: ${ROOT_PASS:-root}
-      MARIADB_DATABASE: ${DB_NAME:-agwise_api}
-      MARIADB_USER: ${DB_USER:-root}
-      MARIADB_PASSWORD: ${DB_PASS:-root}
+      POSTGRES_DB: ${DB_NAME:-agwise_api}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
     ports:
-      - "3306:3306"
-    #    volumes:
-    #      - "./sql-migration/kvuno.sql:/docker-entrypoint-initdb.d/1.sql"
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
