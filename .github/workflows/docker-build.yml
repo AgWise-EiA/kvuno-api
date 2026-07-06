@@ -1,0 +1,28 @@
+name: DockerBuild
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+      - 'beta/*'
+
+jobs:
+  build-dev:
+    uses: ./.github/workflows/docker-build-job.yml
+    with:
+      dockerfile: Dockerfile
+      image_name: masgeek/kvuno-api
+    secrets:
+      docker_username: ${{ secrets.DOCKER_USERNAME }}
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-prod:
+    uses: ./.github/workflows/docker-build-job.yml
+    if: github.ref == 'refs/heads/main'
+    with:
+      dockerfile: Dockerfile.prod.dockerfile
+      image_name: masgeek/kvuno-api
+    secrets:
+      docker_username: ${{ secrets.DOCKER_USERNAME }}
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
