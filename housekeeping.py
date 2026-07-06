@@ -21,7 +21,9 @@ from app.utils.logging import SharedLogger
 
 # Load environment variables from .env file
 load_dotenv()
-shared_logger = SharedLogger(level=logging.DEBUG)
+
+loglevel = os.getenv('LOG_LEVEL', 'INFO').lower()
+shared_logger = SharedLogger(level=loglevel)
 logger = shared_logger.get_logger()
 
 app = create_app()

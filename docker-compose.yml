@@ -8,8 +8,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - .:/app
 
   db:
     container_name: db
@@ -19,7 +17,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-agwise_api}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:

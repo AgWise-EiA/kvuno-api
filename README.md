@@ -98,11 +98,23 @@ poetry install
 cp .env.example .env
 ```
 
-Edit `.env` with your database connection string:
+Edit `.env` with your database connection. You can either set a full `DB_URL` or individual parts:
 
 ```env
-DB_URL="sqlite:///kvuno.db"
-# or PostgreSQL: postgresql://user:pass@host:5432/kvuno
+# Full URL (takes priority)
+# DB_URL="postgresql://user:pass@host:5432/kvuno"
+
+# Individual parts
+DB_DRIVER=postgresql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=agwise_api
+
+# For SQLite:
+# DB_DRIVER=sqlite
+# DB_NAME=kvuno.db
 ```
 
 ### Database Migrations
@@ -129,14 +141,24 @@ The API will be available at `http://localhost:5000` and the OpenAPI docs at `ht
 
 ### Docker Deployment
 
-```bash
-# Build and start services (Flask + PostgreSQL)
-docker-compose up --build
+A `docker-compose.yml` runs the Flask API alongside PostgreSQL with a single command:
 
-# Production build
-docker build -f Dockerfile.prod.dockerfile -t kvuno-api:latest .
-docker run -p 5000:5000 kvuno-api:latest
+```bash
+# Build and start both services
+docker compose up --build -d
+
+# Run database migrations
+docker compose exec kvuno alembic upgrade head
+
+# Verify
+curl http://localhost:5000/health
 ```
+
+Two image variants are provided:
+- **`Dockerfile`** — dev image with Flask dev server
+- **`Dockerfile.prod.dockerfile`** — production image with Gunicorn
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full details on Compose configuration, environment variables, running commands inside containers, and troubleshooting.
 
 ## Usage
 
@@ -210,7 +232,13 @@ Key environment variables (see `.env.example`):
 
 | Variable | Description | Default |
 |---|---|---|
-| `DB_URL` | Database connection string | `sqlite:///kvuno.db` |
+| `DB_URL` | Full database connection string (overrides DB_*) | — |
+| `DB_DRIVER` | Database driver | `postgresql` |
+| `DB_HOST` | Database host | `127.0.0.1` |
+| `DB_PORT` | Database port | `5432` |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | `postgres` |
+| `DB_NAME` | Database name | `agwise_api` |
 | `FLASK_DEBUG` | Enable debug mode | `1` |
 | `SERVER_HOST` | Bind address | `0.0.0.0` |
 | `SERVER_PORT` | Bind port | `5000` |

@@ -6,7 +6,7 @@ from flask_openapi3 import OpenAPI, Server, Contact, License, Info
 
 from app.models.database_conn import MyDb
 from app.routes.main import register_app_routes
-from . import config
+from app.config import build_db_url, APP_NAME, APP_VERSION
 
 # Load environment variables from .env file
 load_dotenv()
@@ -26,8 +26,8 @@ api_license = License(
 
 # API information
 info = Info(
-    title=config.APP_NAME,
-    version=config.APP_VERSION,
+    title=APP_NAME,
+    version=APP_VERSION,
     contact=contact,
     license=api_license,
     termsOfService="https://agwise.cgiar.org/terms-of-service"
@@ -70,7 +70,7 @@ def create_app():
     CORS(app)
 
     # Configure the database URI
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DB_URL")
+    app.config['SQLALCHEMY_DATABASE_URI'] = build_db_url()
     app.config['SQLALCHEMY_ECHO'] = os.getenv('DEBUG_DB') == '1'
     app.json.sort_keys = os.getenv('SORT_JSON') == '1'
 

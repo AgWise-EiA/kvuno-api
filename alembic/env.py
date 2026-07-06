@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
+from app.config import build_db_url
 from app.models import kvuno
 
 load_dotenv()
@@ -15,7 +16,7 @@ config = context.config
 # here we allow ourselves to pass interpolation vars to alembic.ini
 # fron the host env
 section = config.config_ini_section
-config.set_section_option(section, "DB_URL", os.environ.get("DB_URL"))
+config.set_section_option(section, "DB_URL", build_db_url())
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
