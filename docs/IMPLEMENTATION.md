@@ -12,7 +12,7 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 - [x] **Replace `iterrows` with vectorized batch building** — Replaced the `iterrows()` loop with `chunk.dropna(subset=['XY']).replace({pd.NA: None}).to_dict('records')` for ~100x speedup.
 
-- [ ] **Graceful shutdown** — Catch `KeyboardInterrupt` and `SIGTERM` in `process_file()` to flush the current in-progress batch before exiting, preventing data loss during manual interruption.
+- [x] **Graceful shutdown** — Signal handlers set a `shutdown_requested` flag checked at each batch boundary. On first signal: completes current batch, commits, and exits (does NOT mark file as processed). On second signal: raises `KeyboardInterrupt`/`SystemExit` for force-quit. SIGTERM protected against Windows `AttributeError`.
 
 ---
 
