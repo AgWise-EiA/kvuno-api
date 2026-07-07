@@ -3,6 +3,7 @@ Housekeeping script that processes RDS files and inserts data into the database
 """
 import concurrent.futures
 import os
+import signal
 import time
 
 import pandas as pd
@@ -32,6 +33,33 @@ app = create_app()
 
 processed_files_repo = ProcessedFilesRepo()
 crop_data_repo = CropDataRepo()
+
+# Graceful shutdown flag
+shutdown_requested = False
+
+
+def _handle_sigterm(signum, frame):
+    global shutdown_requested
+    if shutdown_requested:
+        raise SystemExit(1)
+    shutdown_requested = True
+    logger.warning("SIGTERM received — shutting down after current batch")
+
+
+def _handle_sigint(signum, frame):
+    global shutdown_requested
+    if shutdown_requested:
+        raise KeyboardInterrupt()
+    shutdown_requested = True
+    logger.warning("KeyboardInterrupt received — shutting down after current batch")
+
+
+# Register signal handlers (SIGTERM not available on Windows)
+try:
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+except (ValueError, AttributeError):
+    pass
+signal.signal(signal.SIGINT, _handle_sigint)
 
 
 def retry_db(fn, attempts: int = 3, base_delay: float = 1.0):
@@ -85,11 +113,16 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
 
             session = MyDb.get_db().session
             failed_batches = 0
+            completed_batches = 0
 
-            # Outer transaction — everything below either commits together or rolls back
-            with session.begin():
-                # Process the file in chunks
+            # Outer transaction — explicit begin/commit so we can commit on interrupt
+            session.begin()
+            try:
                 for start in range(0, num_rows, chunk_size):
+                    if shutdown_requested:
+                        logger.warning("Shutdown requested — breaking after current chunk")
+                        break
+
                     end = min(start + chunk_size, num_rows)
                     chunk = data.iloc[start:end]
 
@@ -123,9 +156,13 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
 
                     # Flush batches with savepoints — each batch is a nested transaction
                     for i in range(0, len(batch), batch_size):
+                        if shutdown_requested:
+                            logger.warning("Shutdown requested — breaking after current batch")
+                            break
+
                         sub = batch[i:i + batch_size]
                         try:
-                            def do_batch():
+                            def _flush_batch(rows):
                                 with session.begin_nested():
                                     mappings = [
                                         {
@@ -134,15 +171,33 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
                                             if r.lat and r.lon
                                             else None
                                         }
-                                        for r in sub
+                                        for r in rows
                                     ]
                                     session.bulk_insert_mappings(CropData, mappings)
-                            retry_db(do_batch, attempts=2)
+                            retry_db(lambda: _flush_batch(sub), attempts=2)
+                            completed_batches += 1
                         except SQLAlchemyError:
                             failed_batches += 1
                             logger.error(f"Batch {i // batch_size + 1} failed in {file_name}, skipping")
 
-                session.add(ProcessedFiles(file_name=file_name, check_sum=checksum))
+                    if shutdown_requested:
+                        break
+
+                # On graceful shutdown, commit completed batches but don't mark file as processed
+                # so next run can resume or re-process from scratch
+                if not shutdown_requested:
+                    session.add(ProcessedFiles(file_name=file_name, check_sum=checksum))
+            except BaseException:
+                session.rollback()
+                raise
+
+            session.commit()
+
+            if shutdown_requested:
+                logger.warning(
+                    f"Graceful shutdown — committed {completed_batches} batches from {file_name}, "
+                    f"did NOT mark file as processed"
+                )
 
             if failed_batches:
                 logger.warning(f"File {file_name} processed with {failed_batches} failed batch(es)")
