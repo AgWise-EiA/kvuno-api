@@ -29,6 +29,9 @@ dependencies = [
     "alembic (>=1.18.5,<2.0.0)"
 ]
 
+[project.optional-dependencies]
+watch = ["watchdog (>=6,<7)"]
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
