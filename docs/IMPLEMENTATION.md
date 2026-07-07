@@ -18,7 +18,7 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 ## Medium Priority
 
-- [ ] **Per-file error aggregation in concurrent executor** — Replace `executor.map()` with `concurrent.futures.as_completed()` so per-file exceptions are collected and summarized, rather than silently swallowed. Log a final summary of succeeded/failed files.
+- [x] **Per-file error aggregation in concurrent executor** — Replaced `executor.map()` (aborts all on first failure) with `executor.submit()` + `as_completed()`. Each future is individually caught; per-file errors are logged and aggregated for final summary.
 
 - [ ] **Resumable processing (offset tracking)** — Add an `offset` column to `processed_files` (or a new `processing_state` table) to track the last committed row per file. On restart, skip already-inserted rows instead of re-processing from the beginning.
 
