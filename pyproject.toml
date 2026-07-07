@@ -25,7 +25,8 @@ dependencies = [
     "psycopg2-binary (>=2.9.12,<3.0.0)",
     "flask-openapi3[elements,rapidoc,rapipdf,redoc,scalar,swagger] (>=4.3.2,<5.0.0)",
     "requests (>=2.34.2,<3.0.0)",
-    "geoalchemy2 (>=0.20.0,<0.21.0)"
+    "geoalchemy2 (>=0.20.0,<0.21.0)",
+    "alembic (>=1.18.5,<2.0.0)"
 ]
 
 
@@ -37,7 +38,6 @@ build-backend = "poetry.core.masonry.api"
 dev = [
     "pylint (>=4.0.6,<5.0.0)",
     "sqlacodegen[geoalchemy2] (>=4.0.4,<5.0.0)",
-    "alembic (>=1.18.5,<2.0.0)",
     "pandas-stubs (>=3.0.3,<3.1.0)",
     "ruff (>=0.15.20,<0.16.0)",
     "pytest (>=9,<10)",
