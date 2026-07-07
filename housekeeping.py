@@ -105,23 +105,28 @@ def retry_db(fn, attempts: int = 3, base_delay: float = 1.0):
     raise last_exc
 
 
-def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000):
+def process_file(
+    file_path: str,
+    batch_size: int = 1000,
+    chunk_size: int = 10000,
+    checkpoint_interval: int = 50,
+):
     """
-    Processes a single file by reading its contents in chunks, converting data to `PlantingDataREcord` instances,
-    and inserting records into the database. The file is only processed if its checksum is not
-    already recorded in the processed_files repository.
+    Processes a single file by reading its contents in chunks, converting data to `PlantingDataRecord` instances,
+    and inserting records into the database. Supports resumable processing via checkpoint-based commits.
 
     Args:
         file_path (str): The path to the file to be processed.
         batch_size (int): The number of records to batch insert into the database. Defaults to 1000.
         chunk_size (int): The number of rows to read at a time from the RDS file. Defaults to 10000.
+        checkpoint_interval (int): Number of batches per checkpoint commit. Defaults to 50.
 
     Raises:
         FileNotFoundError: If the specified file is not found.
     """
 
-    start_time = time.time()  # Start timing
-    file_name = os.path.basename(file_path)  # Extract the filename without path
+    start_time = time.time()
+    file_name = os.path.basename(file_path)
 
     column_map = load_column_map()
 
@@ -130,37 +135,49 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
         try:
             checksum = calculate_file_checksum(file_path, logger)
 
-            if retry_db(lambda: processed_files_repo.get_processed_file_by_checksum(checksum)):
-                logger.warning(f"File {file_name} is already processed. Checksum: {checksum}")
-                return  # Skip processing if file is already processed
+            # Check if file was already processed (fully or partially)
+            existing = retry_db(lambda: processed_files_repo.get_processed_file_by_checksum(checksum))
+            resume_offset = 0
+            if existing and existing.offset is None:
+                logger.warning(f"File {file_name} is already fully processed. Checksum: {checksum}")
+                return
+            if existing and existing.offset is not None:
+                resume_offset = existing.offset
+                logger.info(f"Resuming {file_name} from row {resume_offset} (checksum: {checksum})")
 
             logger.info(f"Processing file {file_name} in chunks of size {chunk_size}")
 
             result = pyreadr.read_r(file_path)
-            data = result[None]  # Assuming this returns a DataFrame or equivalent
+            data = result[None]
             num_rows = len(data)
+
+            if resume_offset >= num_rows:
+                logger.warning(f"File {file_name} offset ({resume_offset}) >= total rows ({num_rows}), skipping")
+                return
 
             session = MyDb.get_db().session
             failed_batches = 0
             completed_batches = 0
+            batches_since_checkpoint = 0
+            last_committed_row = resume_offset
 
-            # Outer transaction — explicit begin/commit so we can commit on interrupt
+            # Outer transaction — committed at each checkpoint and on completion
             session.begin()
             try:
-                for start in range(0, num_rows, chunk_size):
+                for chunk_start in range(resume_offset, num_rows, chunk_size):
                     if shutdown_requested:
                         logger.warning("Shutdown requested — breaking after current chunk")
                         break
 
-                    end = min(start + chunk_size, num_rows)
-                    chunk = data.iloc[start:end]
+                    chunk_end = min(chunk_start + chunk_size, num_rows)
+                    chunk = data.iloc[chunk_start:chunk_end]
 
-                    logger.debug(f"Processing chunk from rows {start} to {end} of {file_name}")
+                    logger.debug(f"Processing chunk from rows {chunk_start} to {chunk_end} of {file_name}")
 
                     filtered = chunk.dropna(subset=['XY'])
                     skipped = len(chunk) - len(filtered)
                     if skipped:
-                        logger.warning(f"Skipped {skipped} row(s) in chunk {start}-{end} due to empty coordinates")
+                        logger.warning(f"Skipped {skipped} row(s) in chunk {chunk_start}-{chunk_end} due to empty coordinates")
 
                     if filtered.empty:
                         continue
@@ -200,17 +217,26 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
                                     session.bulk_insert_mappings(CropData, mappings)
                             retry_db(lambda: _flush_batch(sub), attempts=2)
                             completed_batches += 1
+                            batches_since_checkpoint += 1
                         except SQLAlchemyError:
                             failed_batches += 1
                             logger.error(f"Batch {i // batch_size + 1} failed in {file_name}, skipping")
 
+                    # Only advance committed row when all batches in this chunk completed
+                    if not shutdown_requested:
+                        last_committed_row = chunk_end
+
+                    # Checkpoint: commit and persist offset
+                    if batches_since_checkpoint >= checkpoint_interval and not shutdown_requested:
+                        session.commit()
+                        processed_files_repo.upsert_offset(checksum, file_name, chunk_end)
+                        session.begin()
+                        batches_since_checkpoint = 0
+                        logger.debug(f"Checkpoint committed at row {chunk_end}")
+
                     if shutdown_requested:
                         break
 
-                # On graceful shutdown, commit completed batches but don't mark file as processed
-                # so next run can resume or re-process from scratch
-                if not shutdown_requested:
-                    session.add(ProcessedFiles(file_name=file_name, check_sum=checksum))
             except BaseException:
                 session.rollback()
                 raise
@@ -218,15 +244,17 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
             session.commit()
 
             if shutdown_requested:
+                processed_files_repo.upsert_offset(checksum, file_name, last_committed_row)
                 logger.warning(
                     f"Graceful shutdown — committed {completed_batches} batches from {file_name}, "
-                    f"did NOT mark file as processed"
+                    f"offset {last_committed_row} persisted"
                 )
+            else:
+                processed_files_repo.upsert_offset(checksum, file_name, num_rows)
+                logger.info(f"File {file_name} fully processed and recorded")
 
             if failed_batches:
                 logger.warning(f"File {file_name} processed with {failed_batches} failed batch(es)")
-            else:
-                logger.info(f"File {file_name} processed and recorded")
 
         except FileNotFoundError as e:
             logger.error(f"Failed to process file {file_name}: {e}")
@@ -312,7 +340,7 @@ def db_health_check():
         logger.info("Database health check passed")
 
 
-def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000):
+def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000, checkpoint_interval: int = 50):
     """
     Loads and processes all RDS files from a specified directory by submitting them for processing
     using a thread pool executor. Each file is processed in a separate thread.
@@ -339,7 +367,7 @@ def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 1
         failed_files = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = {
-                executor.submit(process_file, fp, batch_size, chunk_size): fp
+                executor.submit(process_file, fp, batch_size, chunk_size, checkpoint_interval): fp
                 for fp in file_paths
             }
             for future in concurrent.futures.as_completed(futures):
