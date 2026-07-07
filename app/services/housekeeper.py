@@ -529,16 +529,35 @@ def process_file_async(file_path: str, app=None):
     return thread
 
 
+_STARTUP_LOCK_ID = 42_042_042_042  # arbitrary bigint for pg_try_advisory_lock
+
+
 def process_pending(app=None):
     """Start background processing of unprocessed files (non-blocking).
 
+    Uses a Postgres advisory lock so that only the first worker instance
+    runs the startup processing — subsequent instances silently skip.
     Called once at Flask app startup.
     """
     app = app or current_app._get_current_object()
     def _run():
         with app.app_context():
-            set_app(app)
-            load_rds_to_db(data_folder=DATA_DIR, **housekeeping_settings())
+            session = MyDb.get_db().session
+            locked = session.execute(
+                db_text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": _STARTUP_LOCK_ID},
+            ).scalar()
+            if not locked:
+                logger.info("Startup processing skipped — another instance holds the lock")
+                return
+            try:
+                set_app(app)
+                load_rds_to_db(data_folder=DATA_DIR, **housekeeping_settings())
+            finally:
+                session.execute(
+                    db_text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": _STARTUP_LOCK_ID},
+                )
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     _BACKGROUND_THREADS.append(thread)

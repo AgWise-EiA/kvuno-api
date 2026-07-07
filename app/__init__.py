@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from flask_openapi3 import OpenAPI, Server, Contact, License, Info
 
+from alembic import command
+from alembic.config import Config as AlembicConfig
+
 from app.models.database_conn import MyDb
 from app.routes.main import register_app_routes
 from app.config import build_db_url, APP_NAME, APP_VERSION
@@ -45,6 +48,13 @@ def init_db(app):
     MyDb.init_app(app)
 
 
+def run_migrations():
+    """Run pending Alembic migrations at startup."""
+    alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", build_db_url())
+    command.upgrade(alembic_cfg, "head")
+
+
 def register_apis(app: OpenAPI):
     """Register all API Blueprints with the Flask app."""
     from app.api.user import api as user_api
@@ -78,6 +88,10 @@ def create_app():
 
     # Initialize the database
     init_db(app)
+
+    # Run pending Alembic migrations
+    with app.app_context():
+        run_migrations()
 
     # Register APIs and other routes
     register_apis(app)
