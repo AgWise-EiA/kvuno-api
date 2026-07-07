@@ -290,7 +290,6 @@ def process_file(
             batches_since_checkpoint = 0
             last_committed_row = resume_offset
 
-            session.begin()
             try:
                 for chunk_start in range(resume_offset, num_rows, chunk_size):
                     if shutdown_requested:
@@ -354,7 +353,6 @@ def process_file(
                     if batches_since_checkpoint >= checkpoint_interval and not shutdown_requested:
                         session.commit()
                         processed_files_repo.upsert_offset(checksum, file_name, chunk_end)
-                        session.begin()
                         batches_since_checkpoint = 0
                         logger.debug(f"Checkpoint committed at row {chunk_end}")
 
@@ -535,29 +533,30 @@ _STARTUP_LOCK_ID = 42_042_042_042  # arbitrary bigint for pg_try_advisory_lock
 def process_pending(app=None):
     """Start background processing of unprocessed files (non-blocking).
 
-    Uses a Postgres advisory lock so that only the first worker instance
-    runs the startup processing — subsequent instances silently skip.
+    Uses a Postgres session-level advisory lock on a dedicated connection
+    so that only the first worker instance runs startup processing —
+    subsequent instances silently skip. The lock is held on a persistent
+    connection for the entire duration and auto-released when the thread
+    finishes (connection is garbage-collected).
+
     Called once at Flask app startup.
     """
     app = app or current_app._get_current_object()
     def _run():
         with app.app_context():
-            session = MyDb.get_db().session
-            locked = session.execute(
+            set_app(app)
+            lock_conn = MyDb.get_db().engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+            locked = lock_conn.execute(
                 db_text("SELECT pg_try_advisory_lock(:lock_id)"),
                 {"lock_id": _STARTUP_LOCK_ID},
             ).scalar()
             if not locked:
+                lock_conn.close()
                 logger.info("Startup processing skipped — another instance holds the lock")
                 return
-            try:
-                set_app(app)
-                load_rds_to_db(data_folder=DATA_DIR, **housekeeping_settings())
-            finally:
-                session.execute(
-                    db_text("SELECT pg_advisory_unlock(:lock_id)"),
-                    {"lock_id": _STARTUP_LOCK_ID},
-                )
+
+            # Lock acquired — hold lock_conn open for the entire run
+            load_rds_to_db(data_folder=DATA_DIR, **housekeeping_settings())
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     _BACKGROUND_THREADS.append(thread)
