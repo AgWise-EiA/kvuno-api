@@ -2,6 +2,7 @@
 Housekeeping script that processes RDS files and inserts data into the database
 """
 import concurrent.futures
+import json
 import os
 import signal
 import time
@@ -63,6 +64,31 @@ except (ValueError, AttributeError):
 signal.signal(signal.SIGINT, _handle_sigint)
 
 
+def load_column_map() -> dict[str, str]:
+    """Load column name mapping from RDS_COLUMN_MAP env var (JSON), falling back to defaults.
+
+    Returns a dict of ``{rds_column_name: crop_data_record_attr}``.
+    """
+    default_map = {
+        'country': 'country',
+        'province': 'province',
+        'lon': 'lon',
+        'lat': 'lat',
+        'Variety': 'variety',
+        'Season_type': 'season_type',
+        'Opt_date': 'opt_date',
+        'Planting_Option': 'planting_option',
+    }
+    raw = os.getenv('RDS_COLUMN_MAP')
+    if raw:
+        try:
+            overrides = json.loads(raw)
+            default_map.update(overrides)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Invalid RDS_COLUMN_MAP JSON, using defaults: {e}")
+    return default_map
+
+
 def retry_db(fn, attempts: int = 3, base_delay: float = 1.0):
     """Call *fn* with retries on SQLAlchemyError using exponential backoff."""
     last_exc = None
@@ -96,6 +122,8 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
 
     start_time = time.time()  # Start timing
     file_name = os.path.basename(file_path)  # Extract the filename without path
+
+    column_map = load_column_map()
 
     with app.app_context():
         checksum = None
@@ -139,21 +167,16 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
 
                     records_data = filtered.replace({pd.NA: None, pd.NaT: None}).to_dict('records')
 
-                    # Build this batch from chunk records
+                    # Build this batch from chunk records using configurable column map
                     batch = []
                     for rd in records_data:
-                        batch.append(CropDataRecord(
-                            id=None,
-                            country=rd.get('country'),
-                            province=rd.get('province'),
-                            lon=rd.get('lon'),
-                            lat=rd.get('lat'),
-                            variety=rd.get('Variety'),
-                            season_type=rd.get('Season_type'),
-                            opt_date=rd.get('Opt_date'),
-                            planting_option=int(rd['Planting_Option']) if rd.get('Planting_Option') is not None else None,
-                            check_sum=checksum
-                        ))
+                        kwargs = {'id': None, 'check_sum': checksum}
+                        for rds_col, target_attr in column_map.items():
+                            value = rd.get(rds_col)
+                            if target_attr == 'planting_option' and value is not None:
+                                value = int(value)
+                            kwargs[target_attr] = value
+                        batch.append(CropDataRecord(**kwargs))
 
                     # Flush batches with savepoints — each batch is a nested transaction
                     for i in range(0, len(batch), batch_size):
