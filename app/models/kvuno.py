@@ -52,4 +52,5 @@ class ProcessedFiles(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     check_sum: Mapped[str] = mapped_column(String(100))
     file_name: Mapped[str] = mapped_column(String(120))
+    offset: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     processed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
