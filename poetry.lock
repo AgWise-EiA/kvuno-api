@@ -348,6 +348,12 @@ files = [
 
 [package.dependencies]
 flask = ">=2.0"
+flask-openapi3-elements = {version = "*", optional = true, markers = "extra == \"elements\""}
+flask-openapi3-rapidoc = {version = "*", optional = true, markers = "extra == \"rapidoc\""}
+flask-openapi3-rapipdf = {version = "*", optional = true, markers = "extra == \"rapipdf\""}
+flask-openapi3-redoc = {version = "*", optional = true, markers = "extra == \"redoc\""}
+flask-openapi3-scalar = {version = "*", optional = true, markers = "extra == \"scalar\""}
+flask-openapi3-swagger = {version = "*", optional = true, markers = "extra == \"swagger\""}
 pydantic = ">=2.4"
 
 [package.extras]
@@ -361,6 +367,96 @@ redoc = ["flask-openapi3-redoc"]
 scalar = ["flask-openapi3-scalar"]
 swagger = ["flask-openapi3-swagger"]
 yaml = ["pyyaml"]
+
+[[package]]
+name = "flask-openapi3-elements"
+version = "9.0.15"
+description = "Provide Stoplight Elements UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_elements-9.0.15-py3-none-any.whl", hash = "sha256:d21605ead5c22e81af4b891be9cfa048a156d90e2727c6f59e07160651b1243e"},
+    {file = "flask_openapi3_elements-9.0.15.tar.gz", hash = "sha256:3bbddefe48920b53e57e0ad2d6ee22c0e27485b350bc36bb7c63616f31453f22"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
+
+[[package]]
+name = "flask-openapi3-rapidoc"
+version = "9.3.8"
+description = "Provide RapiDoc UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_rapidoc-9.3.8-py3-none-any.whl", hash = "sha256:3785ccaeff56c8644f03d8be7a5ba1d9a2bfa9237f55b38703ff332742403fea"},
+    {file = "flask_openapi3_rapidoc-9.3.8.tar.gz", hash = "sha256:f298d2f5cb1019c4f394f0b358cade68084555c1499c03abec7cd50b6127459d"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
+
+[[package]]
+name = "flask-openapi3-rapipdf"
+version = "2.2.1"
+description = "Provide RapiPDF UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_rapipdf-2.2.1-py3-none-any.whl", hash = "sha256:3439f3b0138908a75a3ab963a27325fb16957355be2b1ab0010a62ffa2f9eb36"},
+    {file = "flask_openapi3_rapipdf-2.2.1.tar.gz", hash = "sha256:87d3be483581f3a92d1bdd175b2227987a26929f45a7ba1e0aa7131a842a31b0"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
+
+[[package]]
+name = "flask-openapi3-redoc"
+version = "2.5.2"
+description = "Provide Redoc UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_redoc-2.5.2-py3-none-any.whl", hash = "sha256:8e819e5ee9c845e6b8362ea1d050421fbc0da18f77d0d3d1696928c56711b586"},
+    {file = "flask_openapi3_redoc-2.5.2.tar.gz", hash = "sha256:b7939286fc5783b42b8b5cdd9d9053c35eca09da592819f39a377f8133709c43"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
+
+[[package]]
+name = "flask-openapi3-scalar"
+version = "1.44.15"
+description = "Provide Scalar UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_scalar-1.44.15-py3-none-any.whl", hash = "sha256:042d42818985ae664d01d86eca125189d81e80e5f22f52ec8e743f73c265f9f4"},
+    {file = "flask_openapi3_scalar-1.44.15.tar.gz", hash = "sha256:c570f4e7d79dc1db66bb03bf008df64a1bb58d6bf736587074d11a531c10341c"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
+
+[[package]]
+name = "flask-openapi3-swagger"
+version = "5.31.0"
+description = "Provide Swagger UI for flask-openapi3."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "flask_openapi3_swagger-5.31.0-py3-none-any.whl", hash = "sha256:748c57decbb56ae03301ef5731bbe1faddf8d37c7e8dc11d254b0c2c9026acdd"},
+    {file = "flask_openapi3_swagger-5.31.0.tar.gz", hash = "sha256:00211a418dd5cda57721deb215d64b09f70023c87208232076bc249a13aec0e6"},
+]
+
+[package.dependencies]
+flask-openapi3 = "*"
 
 [[package]]
 name = "flask-sqlalchemy"
@@ -384,7 +480,7 @@ version = "0.20.0"
 description = "Using SQLAlchemy with Spatial Databases"
 optional = false
 python-versions = ">=3.10"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "geoalchemy2-0.20.0-py3-none-any.whl", hash = "sha256:1489a1d106519542a79c97cd0b4c537d80462c353610ebc2429cf2c43daac717"},
     {file = "geoalchemy2-0.20.0.tar.gz", hash = "sha256:450f427f4bc3cf2d5ddee0af3763aed0f3eea2384e7c9a99798d8f1508279322"},
@@ -1791,4 +1887,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "1e7eb1bf626358438fe868b478aa25ce165c88694c2f6443e476cd001efc66f6"
+content-hash = "69026c7d18bdf57f5d39e671b03b900ea9909bde33d36381567d6eca6c940a0c"
