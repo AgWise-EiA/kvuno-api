@@ -8,10 +8,13 @@ import time
 import pandas as pd
 import pyreadr
 from dotenv import load_dotenv
+from geoalchemy2 import WKTElement
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import create_app
 from app.dto.crop_data_resp import CropDataRecord
-from app.models.kvuno import ProcessedFiles
+from app.models.database_conn import MyDb
+from app.models.kvuno import CropData, ProcessedFiles
 from app.repo.crop_data import CropDataRepo
 from app.repo.processed_files import ProcessedFilesRepo
 from app.utils import calculate_file_checksum
@@ -29,6 +32,22 @@ app = create_app()
 
 processed_files_repo = ProcessedFilesRepo()
 crop_data_repo = CropDataRepo()
+
+
+def retry_db(fn, attempts: int = 3, base_delay: float = 1.0):
+    """Call *fn* with retries on SQLAlchemyError using exponential backoff."""
+    last_exc = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except SQLAlchemyError as e:
+            last_exc = e
+            if attempt < attempts:
+                delay = base_delay * (2 ** (attempt - 1))
+                logger.warning(f"DB error (attempt {attempt}/{attempts}): {e}. Retrying in {delay}s")
+                time.sleep(delay)
+    logger.error(f"DB operation failed after {attempts} attempts: {last_exc}")
+    raise last_exc
 
 
 def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000):
@@ -50,71 +69,85 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
     file_name = os.path.basename(file_path)  # Extract the filename without path
 
     with app.app_context():
+        checksum = None
         try:
             checksum = calculate_file_checksum(file_path, logger)
 
-            if processed_files_repo.get_processed_file_by_checksum(checksum):
+            if retry_db(lambda: processed_files_repo.get_processed_file_by_checksum(checksum)):
                 logger.warning(f"File {file_name} is already processed. Checksum: {checksum}")
                 return  # Skip processing if file is already processed
 
             logger.info(f"Processing file {file_name} in chunks of size {chunk_size}")
 
-            # Initialize batch processing
-            crop_data_records = []
-
             result = pyreadr.read_r(file_path)
             data = result[None]  # Assuming this returns a DataFrame or equivalent
             num_rows = len(data)
 
-            # Process the file in chunks
-            for start in range(0, num_rows, chunk_size):
-                end = min(start + chunk_size, num_rows)
-                chunk = data.iloc[start:end]
+            session = MyDb.get_db().session
+            failed_batches = 0
 
-                logger.debug(f"Processing chunk from rows {start} to {end} of {file_name}")
+            # Outer transaction — everything below either commits together or rolls back
+            with session.begin():
+                # Process the file in chunks
+                for start in range(0, num_rows, chunk_size):
+                    end = min(start + chunk_size, num_rows)
+                    chunk = data.iloc[start:end]
 
-                filtered = chunk.dropna(subset=['XY'])
-                skipped = len(chunk) - len(filtered)
-                if skipped:
-                    logger.warning(f"Skipped {skipped} row(s) in chunk {start}-{end} due to empty coordinates")
+                    logger.debug(f"Processing chunk from rows {start} to {end} of {file_name}")
 
-                if filtered.empty:
-                    continue
+                    filtered = chunk.dropna(subset=['XY'])
+                    skipped = len(chunk) - len(filtered)
+                    if skipped:
+                        logger.warning(f"Skipped {skipped} row(s) in chunk {start}-{end} due to empty coordinates")
 
-                records_data = filtered.replace({pd.NA: None, pd.NaT: None}).to_dict('records')
+                    if filtered.empty:
+                        continue
 
-                for rd in records_data:
-                    record = CropDataRecord(
-                        id=None,
-                        country=rd.get('country'),
-                        province=rd.get('province'),
-                        lon=rd.get('lon'),
-                        lat=rd.get('lat'),
-                        variety=rd.get('Variety'),
-                        season_type=rd.get('Season_type'),
-                        opt_date=rd.get('Opt_date'),
-                        planting_option=int(rd['Planting_Option']) if rd.get('Planting_Option') is not None else None,
-                        check_sum=checksum
-                    )
-                    crop_data_records.append(record)
+                    records_data = filtered.replace({pd.NA: None, pd.NaT: None}).to_dict('records')
 
-                    if len(crop_data_records) >= batch_size:
-                        crop_data_repo.batch_insert(crop_data_records)
-                        logger.info(f"Inserted batch of {len(crop_data_records)} records from {file_name}")
-                        crop_data_records.clear()
+                    # Build this batch from chunk records
+                    batch = []
+                    for rd in records_data:
+                        batch.append(CropDataRecord(
+                            id=None,
+                            country=rd.get('country'),
+                            province=rd.get('province'),
+                            lon=rd.get('lon'),
+                            lat=rd.get('lat'),
+                            variety=rd.get('Variety'),
+                            season_type=rd.get('Season_type'),
+                            opt_date=rd.get('Opt_date'),
+                            planting_option=int(rd['Planting_Option']) if rd.get('Planting_Option') is not None else None,
+                            check_sum=checksum
+                        ))
 
-            # Insert remaining records
-            if crop_data_records:
-                logger.info(f"Inserting final batch of {len(crop_data_records)} records")
-                crop_data_repo.batch_insert(crop_data_records)
-                crop_data_records.clear()
+                    # Flush batches with savepoints — each batch is a nested transaction
+                    for i in range(0, len(batch), batch_size):
+                        sub = batch[i:i + batch_size]
+                        try:
+                            def do_batch():
+                                with session.begin_nested():
+                                    mappings = [
+                                        {
+                                            **r.__dict__,
+                                            'coordinates': WKTElement(f"POINT({r.lon} {r.lat})", srid=4326)
+                                            if r.lat and r.lon
+                                            else None
+                                        }
+                                        for r in sub
+                                    ]
+                                    session.bulk_insert_mappings(CropData, mappings)
+                            retry_db(do_batch, attempts=2)
+                        except SQLAlchemyError:
+                            failed_batches += 1
+                            logger.error(f"Batch {i // batch_size + 1} failed in {file_name}, skipping")
 
-            processed_file = ProcessedFiles(
-                file_name=file_name,
-                check_sum=checksum
-            )
-            processed_files_repo.add_processed_file(processed_file=processed_file)
-            logger.info(f"File {file_name} processed and recorded")
+                session.add(ProcessedFiles(file_name=file_name, check_sum=checksum))
+
+            if failed_batches:
+                logger.warning(f"File {file_name} processed with {failed_batches} failed batch(es)")
+            else:
+                logger.info(f"File {file_name} processed and recorded")
 
         except FileNotFoundError as e:
             logger.error(f"Failed to process file {file_name}: {e}")
