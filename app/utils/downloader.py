@@ -134,7 +134,7 @@ def download_and_process(url: str, filename: Optional[str] = None,
     filepath = downloader.download(url, filename=filename)
 
     if process:
-        from housekeeping import process_file
+        from app.services.housekeeper import process_file
         process_file(filepath, batch_size=batch_size, chunk_size=chunk_size)
 
     return filepath
