@@ -22,7 +22,7 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 - [ ] **Resumable processing (offset tracking)** — Add an `offset` column to `processed_files` (or a new `processing_state` table) to track the last committed row per file. On restart, skip already-inserted rows instead of re-processing from the beginning.
 
-- [ ] **Pre-flight DB health check** — At the start of `load_rds_to_db()`, run a `SELECT 1` to confirm the database is reachable before spending time downloading or processing files.
+- [x] **Pre-flight DB health check** — `db_health_check()` runs `SELECT 1` at the start of `load_rds_to_db()` before downloading or processing any files. Raises immediately if the database is unreachable.
 
 - [ ] **Configurable column mapping** — Accept a column-name mapping (via env var `RDS_COLUMN_MAP` as JSON, e.g. `{"XY": "coordinates", "Variety": "variety"}`) so the script adapts to different RDS schemas without hardcoded column names.
 
