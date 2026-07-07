@@ -283,7 +283,7 @@ def download_remote_files(data_folder: str) -> list[str]:
 def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000):
     """
     Loads and processes all RDS files from a specified directory by submitting them for processing
-    using a process pool executor. Each file is processed in a separate process.
+    using a thread pool executor. Each file is processed in a separate thread.
 
     Remote RDS files defined in the REMOTE_RDS_URLS env var are downloaded first.
 
@@ -302,8 +302,28 @@ def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 1
     logger.info(f"Starting to process {len(file_paths)} file(s) from {data_folder}")
 
     with app.app_context():
+        failed_files = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(lambda file_path: process_file(file_path, batch_size, chunk_size), file_paths)
+            futures = {
+                executor.submit(process_file, fp, batch_size, chunk_size): fp
+                for fp in file_paths
+            }
+            for future in concurrent.futures.as_completed(futures):
+                fp = futures[future]
+                try:
+                    future.result()
+                    logger.info(f"Completed processing {os.path.basename(fp)}")
+                except Exception as e:
+                    failed_files.append((fp, e))
+                    logger.error(f"Failed to process {os.path.basename(fp)}: {e}")
+
+        if failed_files:
+            logger.error(
+                f"Processed {len(file_paths) - len(failed_files)}/{len(file_paths)} file(s), "
+                f"{len(failed_files)} failed"
+            )
+            for fp, exc in failed_files:
+                logger.error(f"  {os.path.basename(fp)}: {exc}")
 
     global_elapsed_time = time.time() - global_start_time
     if global_elapsed_time > 60:
