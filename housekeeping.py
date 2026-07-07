@@ -10,6 +10,7 @@ import pandas as pd
 import pyreadr
 from dotenv import load_dotenv
 from geoalchemy2 import WKTElement
+from sqlalchemy import text as db_text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import create_app
@@ -280,6 +281,14 @@ def download_remote_files(data_folder: str) -> list[str]:
     return downloaded
 
 
+def db_health_check():
+    """Run a quick query to confirm the database is reachable. Raises on failure."""
+    with app.app_context():
+        session = MyDb.get_db().session
+        session.execute(db_text("SELECT 1"))
+        logger.info("Database health check passed")
+
+
 def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000):
     """
     Loads and processes all RDS files from a specified directory by submitting them for processing
@@ -294,6 +303,8 @@ def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 1
     """
     os.makedirs(data_folder, exist_ok=True)
     global_start_time = time.time()
+
+    db_health_check()
 
     download_remote_files(data_folder)
 
