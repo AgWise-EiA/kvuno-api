@@ -73,30 +73,35 @@ def process_file(file_path: str, batch_size: int = 1000, chunk_size: int = 10000
 
                 logger.debug(f"Processing chunk from rows {start} to {end} of {file_name}")
 
-                for index, row in chunk.iterrows():
-                    logger.debug(f"Processing row {index} from {file_name}")
-                    coordinates = row['XY'] if pd.notna(row['XY']) else None
-                    if coordinates:
-                        record = CropDataRecord(
-                            id=None,
-                            country=row['country'] if pd.notna(row['country']) else None,
-                            province=row['province'] if pd.notna(row['province']) else None,
-                            lon=row['lon'] if pd.notna(row['lon']) else None,
-                            lat=row['lat'] if pd.notna(row['lat']) else None,
-                            variety=row['Variety'] if pd.notna(row['Variety']) else None,
-                            season_type=row['Season_type'] if pd.notna(row['Season_type']) else None,
-                            opt_date=row['Opt_date'] if pd.notna(row['Opt_date']) else None,
-                            planting_option=int(row['Planting_Option']) if pd.notna(row['Planting_Option']) else None,
-                            check_sum=checksum
-                        )
-                        crop_data_records.append(record)
-                    else:
-                        logger.warning(f"Skipping row {index} from {file_name} due to empty coordinates")
+                filtered = chunk.dropna(subset=['XY'])
+                skipped = len(chunk) - len(filtered)
+                if skipped:
+                    logger.warning(f"Skipped {skipped} row(s) in chunk {start}-{end} due to empty coordinates")
+
+                if filtered.empty:
+                    continue
+
+                records_data = filtered.replace({pd.NA: None, pd.NaT: None}).to_dict('records')
+
+                for rd in records_data:
+                    record = CropDataRecord(
+                        id=None,
+                        country=rd.get('country'),
+                        province=rd.get('province'),
+                        lon=rd.get('lon'),
+                        lat=rd.get('lat'),
+                        variety=rd.get('Variety'),
+                        season_type=rd.get('Season_type'),
+                        opt_date=rd.get('Opt_date'),
+                        planting_option=int(rd['Planting_Option']) if rd.get('Planting_Option') is not None else None,
+                        check_sum=checksum
+                    )
+                    crop_data_records.append(record)
 
                     if len(crop_data_records) >= batch_size:
                         crop_data_repo.batch_insert(crop_data_records)
-                        logger.info(f"Processed batch of {len(crop_data_records)} records from {file_name}")
-                        crop_data_records.clear()  # Clear the batch
+                        logger.info(f"Inserted batch of {len(crop_data_records)} records from {file_name}")
+                        crop_data_records.clear()
 
             # Insert remaining records
             if crop_data_records:
