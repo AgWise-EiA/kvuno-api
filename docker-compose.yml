@@ -22,16 +22,18 @@ services:
       SERVER_HOST: ${SERVER_HOST:-0.0.0.0}
       SERVER_PORT: ${SERVER_PORT:-5000}
       HOUSEKEEPING_ENABLED: ${HOUSEKEEPING_ENABLED:-true}
+      HOUSEKEEPING_MAX_WORKERS: ${HOUSEKEEPING_MAX_WORKERS:-1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       REMOTE_RDS_URLS: ${REMOTE_RDS_URLS:-}
-      REMOTE_RDS_TOKEN: ${REMOTE_RDS_TOKEN:-}
-      REMOTE_RDS_COOKIES: ${REMOTE_RDS_COOKIES:-}
-      REMOTE_RDS_HEADERS: ${REMOTE_RDS_HEADERS:-}
+
     volumes:
       - ${DATA_DIR:-./data}:/app/static/data
     ports:
       - "5000:5000"
     depends_on:
       - db
+      - redis
 
   prod:
     container_name: kvuno-prod
@@ -56,16 +58,59 @@ services:
       SERVER_HOST: ${SERVER_HOST:-0.0.0.0}
       SERVER_PORT: ${SERVER_PORT:-5000}
       HOUSEKEEPING_ENABLED: ${HOUSEKEEPING_ENABLED:-true}
+      HOUSEKEEPING_MAX_WORKERS: ${HOUSEKEEPING_MAX_WORKERS:-1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       REMOTE_RDS_URLS: ${REMOTE_RDS_URLS:-}
-      REMOTE_RDS_TOKEN: ${REMOTE_RDS_TOKEN:-}
-      REMOTE_RDS_COOKIES: ${REMOTE_RDS_COOKIES:-}
-      REMOTE_RDS_HEADERS: ${REMOTE_RDS_HEADERS:-}
+
     volumes:
       - ${DATA_DIR:-./data}:/app/static/data
     ports:
       - "5001:5000"
     depends_on:
       - db
+      - redis
+
+  worker:
+    container_name: kvuno-worker
+    hostname: kvuno-worker
+    image: masgeek/kvuno-worker:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DEBUG_DB: ${DEBUG_DB:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_DRIVER: ${DB_DRIVER:-postgresql}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      HOUSEKEEPING_BATCH_SIZE: ${HOUSEKEEPING_BATCH_SIZE:-2000}
+      HOUSEKEEPING_CHUNK_SIZE: ${HOUSEKEEPING_CHUNK_SIZE:-5000}
+      HOUSEKEEPING_CHECKPOINT_INTERVAL: ${HOUSEKEEPING_CHECKPOINT_INTERVAL:-50}
+      HOUSEKEEPING_MAX_WORKERS: ${HOUSEKEEPING_MAX_WORKERS:-1}
+      REMOTE_RDS_URLS: ${REMOTE_RDS_URLS:-}
+
+      RDS_COLUMN_MAP: ${RDS_COLUMN_MAP:-}
+    volumes:
+      - ${DATA_DIR:-./data}:/app/static/data
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    container_name: kvuno-redis
+    hostname: redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   db:
     container_name: db
     hostname: db

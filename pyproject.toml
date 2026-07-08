@@ -28,7 +28,9 @@ dependencies = [
     "geoalchemy2 (>=0.20.0,<0.21.0)",
     "alembic (>=1.18.5,<2.0.0)",
     "tqdm (>=4.67,<5.0)",
-    "watchdog (>=6.0.0,<7.0.0)"
+    "watchdog (>=6.0.0,<7.0.0)",
+    "celery (>=5.4,<6.0)",
+    "redis (>=6.0,<7.0)"
 ]
 
 [build-system]

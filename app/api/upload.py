@@ -6,7 +6,7 @@ from flask import request, jsonify
 from flask_openapi3 import Tag, APIBlueprint
 
 from app.config import API_PREFIX, API_VERSION
-from app.services.housekeeper import process_file_async as process_file
+from app.tasks import process_file_task as process_file
 
 __bp__ = "/data"
 url_prefix = API_PREFIX + API_VERSION + __bp__
@@ -44,7 +44,7 @@ def upload_file():
     dest = os.path.join(DATA_DIR, unique_name)
     f.save(dest)
 
-    process_file(dest)
+    process_file.delay(file_path=dest)
 
     return jsonify({
         "message": "File accepted for processing",

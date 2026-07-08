@@ -8,13 +8,11 @@ import concurrent.futures
 import json
 import os
 import signal
-import threading
 import time
 
 import pandas as pd
 import pyreadr
 from dotenv import load_dotenv
-from flask import current_app
 from geoalchemy2 import WKTElement
 from sqlalchemy import text as db_text
 from sqlalchemy.exc import SQLAlchemyError
@@ -36,7 +34,6 @@ shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 _app = None
-_BACKGROUND_THREADS: list[threading.Thread] = []
 DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join("static", "data"))
 
 
@@ -65,8 +62,9 @@ def housekeeping_settings() -> dict:
     """
     return {
         'batch_size': int(os.getenv('HOUSEKEEPING_BATCH_SIZE', '2000')),
-        'chunk_size': int(os.getenv('HOUSEKEEPING_CHUNK_SIZE', '10000')),
+        'chunk_size': int(os.getenv('HOUSEKEEPING_CHUNK_SIZE', '5000')),
         'checkpoint_interval': int(os.getenv('HOUSEKEEPING_CHECKPOINT_INTERVAL', '50')),
+        'max_workers': int(os.getenv('HOUSEKEEPING_MAX_WORKERS', '1')),
     }
 
 
@@ -269,8 +267,9 @@ def process_file(
                 resume_offset = existing.offset
                 logger.info(f"Resuming {file_name} from row {resume_offset} (checksum: {checksum})")
 
+            column_names = list(column_map.keys())
             if file_path.endswith('.parquet'):
-                data = pd.read_parquet(file_path)
+                data = pd.read_parquet(file_path, columns=column_names + ['XY'])
             else:
                 result = pyreadr.read_r(file_path)
                 data = result[None]
@@ -376,6 +375,8 @@ def process_file(
             pbar.close()
             session.commit()
 
+            del data
+
             elapsed = time.time() - start_time
             emit_event("file.processing_end", file=file_name, checksum=checksum,
                        elapsed=round(elapsed, 2), completed_batches=completed_batches,
@@ -409,8 +410,8 @@ def process_file(
 
 # ── Batch processing ───────────────────────────────────────────
 
-def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 10000,
-                   checkpoint_interval: int = 50, dry_run: bool = False):
+def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 5000,
+                   checkpoint_interval: int = 50, max_workers: int = 1, dry_run: bool = False):
     """
     Loads and processes all RDS/Parquet files from *data_folder* using a thread pool.
 
@@ -434,7 +435,7 @@ def load_rds_to_db(data_folder: str, batch_size: int = 1000, chunk_size: int = 1
     failed_count = 0
     with _get_app().app_context():
         failed_files = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(process_file, fp, batch_size, chunk_size, checkpoint_interval, dry_run): fp
                 for fp in file_paths
@@ -514,55 +515,24 @@ def watch_directory(
 # ── Async wrappers (Flask integration) ─────────────────────────
 
 def process_file_async(file_path: str, app=None):
-    """Process a single file in a background thread (non-blocking).
+    """Enqueue a single file for processing via Celery (non-blocking).
 
     Used by the upload API endpoint.
     """
-    app = app or current_app._get_current_object()
-    def _run():
-        with app.app_context():
-            set_app(app)
-            process_file(file_path=file_path, **housekeeping_settings())
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-    _BACKGROUND_THREADS.append(thread)
-    return thread
+    from app.tasks import process_file_task
+    process_file_task.delay(file_path=file_path)
 
 
 _STARTUP_LOCK_ID = 42_042_042_042  # arbitrary bigint for pg_try_advisory_lock
 
 
 def process_pending(app=None):
-    """Start background processing of unprocessed files (non-blocking).
-
-    Uses a Postgres session-level advisory lock on a dedicated connection
-    so that only the first worker instance runs startup processing —
-    subsequent instances silently skip. The lock is held on a persistent
-    connection for the entire duration and auto-released when the thread
-    finishes (connection is garbage-collected).
+    """Enqueue background processing of unprocessed files via Celery.
 
     Called once at Flask app startup.
     """
-    app = app or current_app._get_current_object()
-    def _run():
-        with app.app_context():
-            set_app(app)
-            lock_conn = MyDb.get_db().engine.connect().execution_options(isolation_level="AUTOCOMMIT")
-            locked = lock_conn.execute(
-                db_text("SELECT pg_try_advisory_lock(:lock_id)"),
-                {"lock_id": _STARTUP_LOCK_ID},
-            ).scalar()
-            if not locked:
-                lock_conn.close()
-                logger.info("Startup processing skipped — another instance holds the lock")
-                return
-
-            # Lock acquired — hold lock_conn open for the entire run
-            load_rds_to_db(data_folder=DATA_DIR, **housekeeping_settings())
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-    _BACKGROUND_THREADS.append(thread)
-    return thread
+    from app.tasks import process_pending_task
+    process_pending_task.delay()
 
 
 # ── CLI dispatcher ─────────────────────────────────────────────
