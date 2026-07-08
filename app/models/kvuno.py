@@ -2,17 +2,40 @@ from typing import Any, Optional
 import datetime
 
 from geoalchemy2.types import Geometry
-from sqlalchemy import BigInteger, DateTime, Index, Integer, PrimaryKeyConstraint, REAL, String, UniqueConstraint, text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, PrimaryKeyConstraint, REAL, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     pass
 
 
+class CropDataConflict(Base):
+    __tablename__ = 'crop_data_conflicts'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='crop_data_conflicts_pkey'),
+        Index('idx_conflict_created_at', 'created_at'),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    record_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    country: Mapped[Optional[str]] = mapped_column(String(20))
+    province: Mapped[Optional[str]] = mapped_column(String(20))
+    lon: Mapped[Optional[float]] = mapped_column(REAL)
+    lat: Mapped[Optional[float]] = mapped_column(REAL)
+    variety: Mapped[Optional[str]] = mapped_column(String(20))
+    season_type: Mapped[Optional[str]] = mapped_column(String(20))
+    opt_date: Mapped[Optional[str]] = mapped_column(String(8))
+    check_sum: Mapped[Optional[str]] = mapped_column(String(100))
+    source: Mapped[Optional[str]] = mapped_column(String(50))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
+
+
 class CropData(Base):
     __tablename__ = 'crop_data'
     __table_args__ = (
         PrimaryKeyConstraint('id', name='crop_data_pkey'),
+        UniqueConstraint('country', 'province', 'lon', 'lat', 'variety', 'season_type', 'opt_date',
+                         name='uq_crop_data_record'),
         Index('idx_check_sum', 'check_sum'),
         Index('idx_coordinates', 'coordinates', postgresql_using='gist'),
         Index('idx_country', 'country'),
