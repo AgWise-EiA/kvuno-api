@@ -551,13 +551,14 @@ def _enqueue_or_warn(task, **kwargs):
 
     t = threading.Thread(target=_send, daemon=True)
     t.start()
-    t.join(timeout=5)
+    t.join(timeout=2)
 
     if t.is_alive():
         logger.warning(
-            f"Timed out enqueuing {task.__name__} — Redis at "
-            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')} "
-            f"is not responding. Start Redis or disable HOUSEKEEPING_ENABLED."
+            f"Timed out enqueuing {task.__name__} — "
+            f"Kombu/Celery cannot connect to Redis at "
+            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')}. "
+            f"Run the worker in Docker for housekeeping, or set HOUSEKEEPING_ENABLED=false."
         )
         return
 
