@@ -27,9 +27,9 @@ RDS (R Data Serialization) files containing crop planting data are either placed
                                                   └────────┬─────────┘
                                                         │
                                           ┌─────────────▼──────────┐
-                                          │  Already processed?    │
-                                          │  (processed_files      │
-                                          │   table lookup)        │
+                                           │  Already processed?    │
+                                           │  (file_imports          │
+                                           │   table lookup)        │
                                           └──────┬──────────┬──────┘
                                                  │ YES      │ NO
                                                  ▼          ▼
@@ -64,9 +64,9 @@ RDS (R Data Serialization) files containing crop planting data are either placed
                                                      └────────┬────────┘
                                                               │
                                                      ┌────────▼────────┐
-                                                     │  Record in      │
-                                                     │  processed_files│
-                                                     │  (name + SHA)   │
+                                                      │  Record in       │
+                                                      │  file_imports    │
+                                                      │  (name + SHA)   │
                                                      └─────────────────┘
 ```
 
@@ -76,22 +76,22 @@ RDS (R Data Serialization) files containing crop planting data are either placed
 2. **File discovery** — `load_rds_to_db()` (`housekeeping.py:168`) scans `static/data/` for all `.RDS` files — both pre-existing and freshly downloaded
 2. **Concurrent dispatch** — Files are processed in parallel via `ThreadPoolExecutor` (`housekeeping.py:141`)
 3. **Checksum calculation** — Each file is hashed with SHA-256 (`app/utils/__init__.py:4`)
-4. **Deduplication check** — `ProcessedFilesRepo.get_processed_file_by_checksum()` (`app/repo/processed_files.py:51`) checks the `processed_files` table
+4. **Deduplication check** — `FileImportRepo.get_by_checksum()` (`app/repo/file_import.py`) checks the `file_imports` table
 5. **RDS parsing** — `pyreadr.read_r()` loads the entire file into a pandas DataFrame (`housekeeping.py:63`)
 6. **Chunked processing** — Rows are iterated in chunks of `chunk_size` (default 10,000) to control memory usage
-7. **Column mapping** — Each row maps RDS columns to `CropDataRecord` fields:
+7. **Column mapping** — Each row maps RDS columns to `PlantingRecommendationRecord` fields:
    - `XY` → used as presence check (rows without coordinates are skipped)
    - `country`, `province`, `lon`, `lat`, `Variety`, `Season_type`, `Opt_date`, `Planting_Option` → ORM fields
    - File checksum is attached to every row for traceability
-8. **Batch insert** — Accumulated records are bulk-inserted via `CropDataRepo.batch_insert()` (`app/repo/crop_data.py:136`). The `coordinates` geometry is built as `POINT(lon lat)` WKT with SRID 4326
-9. **File tracking** — After all rows are inserted, a `ProcessedFiles` record (file name + checksum) is saved (`housekeeping.py:105-109`)
+8. **Batch insert** — Accumulated records are bulk-inserted via `PlantingRecommendationRepo.batch_insert()` (`app/repo/planting_recommendation.py`). The `coordinates` geometry is built as `POINT(lon lat)` WKT with SRID 4326
+9. **File tracking** — After all rows are inserted, a `FileImport` record (file name + checksum) is saved
 
 ### Tables affected
 
 | Table | Action | Key columns |
 |---|---|---|
-| `crop_data` | INSERT (bulk) | `check_sum`, `country`, `province`, `coordinates` (POINT), `lon`, `lat`, `variety`, `season_type`, `opt_date`, `planting_option` |
-| `processed_files` | INSERT (single) | `check_sum` (unique), `file_name`, `processed_at` |
+    | `planting_recommendations` | INSERT (bulk) | `check_sum`, `country`, `province`, `coordinates` (POINT), `lon`, `lat`, `variety`, `season_type`, `opt_date`, `planting_option` |
+| `file_imports` | INSERT (single) | `check_sum` (unique), `file_name`, `processed_at` |
 
 ---
 
@@ -106,8 +106,8 @@ Clients retrieve planting data via `GET /api/v1/planting-data/`, which applies f
 └──────────┘     └──────────────────┘     └──────────┬───────────┘
                                                       │
                                              ┌────────▼───────────┐
-                                             │  CropDataRepo.     │
-                                             │  get_paginated_data│
+                                              │  PlantingRecommendationRepo.│
+                                              │  get_paginated_data         │
                                              └────────┬───────────┘
                                                       │
                                              ┌────────▼───────────┐
@@ -145,12 +145,12 @@ Clients retrieve planting data via `GET /api/v1/planting-data/`, which applies f
    - `coordinates`: must match `lon,lat` format; lat in [-90, 90], lon in [-180, 180]
    - `opt_date`: must be `YYYY-MM-DD`
    - Whitespace is stripped; enum values resolved
-4. **Query building** — `CropDataRepo.get_filtered_data()` (`app/repo/crop_data.py:66`) constructs a SQLAlchemy query with optional filters:
+4. **Query building** — `PlantingRecommendationRepo.get_filtered_data()` (`app/repo/planting_recommendation.py`) constructs a SQLAlchemy query with optional filters:
    - **Spatial**: If `coordinates` + `radius` provided, uses `ST_DWithin(geometry, point, radius)` for PostGIS radius search
    - **Exact match**: `country`, `variety`, `season_type`, `opt_date`, `planting_option`
    - **Partial/ILIKE**: `province` uses `ILIKE '%search%'`
-5. **Pagination** — `query.paginate(page, per_page)` returns a `QueryPagination` object with items, total count, and page metadata (`app/repo/crop_data.py:100`)
-6. **Response mapping** — Each ORM `CropData` row is converted to a `CropDataRecord` dict (`app/api/planting_data.py:36-47`)
+5. **Pagination** — `query.paginate(page, per_page)` returns a `QueryPagination` object with items, total count, and page metadata (`app/repo/planting_recommendation.py`)
+6. **Response mapping** — Each ORM `PlantingRecommendation` row is converted to a `PlantingRecommendationRecord` dict (`app/api/planting_data.py`)
 7. **JSON response** — Returns `{ data: [...], total, pages, current_page, per_page }` with HTTP 200, or 500 on error
 
 ### Response shape
@@ -182,7 +182,7 @@ Clients retrieve planting data via `GET /api/v1/planting-data/`, which applies f
 
 ## 3. Database Schema
 
-### `crop_data`
+### `planting_recommendations`
 
 | Column | Type | Description |
 |---|---|---|
@@ -202,7 +202,7 @@ Clients retrieve planting data via `GET /api/v1/planting-data/`, which applies f
 
 Indexes: `check_sum`, `coordinates` (GiST), `country`, `province`, `lon`, `lat`, `variety`, `season_type`, `opt_date`, `planting_option`.
 
-### `processed_files`
+### `file_imports`
 
 | Column | Type | Description |
 |---|---|---|
@@ -221,12 +221,12 @@ Indexes: `check_sum`, `coordinates` (GiST), `country`, `province`, `lon`, `lat`,
 | Download | `app/utils/downloader.py` | `RDSDownloader` — remote file download with auth support (used by housekeeping) |
 | Checksum | `app/utils/__init__.py` | `calculate_file_checksum()` — file hashing |
 | Parsing | `pyreadr` (external) | RDS → pandas DataFrame conversion |
-| Models | `app/models/kvuno.py` | `CropData` and `ProcessedFiles` ORM models |
+| Models | `app/models/kvuno.py` | `PlantingRecommendation`, `FileImport`, `ImportConflict` ORM models |
 | DB Conn | `app/models/database_conn.py` | `MyDb` singleton — SQLAlchemy initialization |
-| Repo | `app/repo/crop_data.py` | `CropDataRepo` — CRUD, batch insert, filtered queries |
-| Repo | `app/repo/processed_files.py` | `ProcessedFilesRepo` — deduplication checks |
+| Repo | `app/repo/planting_recommendation.py` | `PlantingRecommendationRepo` — CRUD, batch insert, filtered queries |
+| Repo | `app/repo/file_import.py` | `FileImportRepo` — deduplication checks |
 | DTO | `app/dto/data_filters.py` | `PlantingDataFilter` — Pydantic query validation |
-| DTO | `app/dto/crop_data_resp.py` | Response models for OpenAPI schema |
+| DTO | `app/dto/planting_recommendation.py` | Response models for OpenAPI schema |
 | API | `app/api/planting_data.py` | `GET /api/v1/planting-data/` endpoint |
 | Routes | `app/routes/main.py` | `/` redirect, `/health` check |
 | App | `app/__init__.py` | `create_app()` — Flask factory, CORS, DB init |
