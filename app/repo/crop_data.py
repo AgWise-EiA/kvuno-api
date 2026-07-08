@@ -2,14 +2,14 @@ from typing import Optional, List, Type
 
 from flask_sqlalchemy.pagination import QueryPagination
 from geoalchemy2 import WKTElement
-from sqlalchemy import func
+from sqlalchemy import func, insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query
 
 from app.dto.crop_data_resp import CropDataRecord
 from app.dto.data_filters import PlantingDataFilter
 from app.models.database_conn import MyDb
-from app.models.kvuno import CropData
+from app.models.kvuno import CropData, CropDataConflict
 from app.utils.logging import SharedLogger
 
 shared_logger = SharedLogger()
@@ -132,14 +132,47 @@ class CropDataRepo:
             self.logger.error(f"Failed to find PlantingData with checksum {check_sum}: {e}")
             raise
 
-    def batch_insert(self, crop_data: List[CropDataRecord]) -> None:
+    def _log_conflicts(self, session, mappings, inserted_count):
+        if inserted_count == len(mappings):
+            return
+        from sqlalchemy import tuple_
+        unique_cols = ['country', 'province', 'lon', 'lat', 'variety', 'season_type', 'opt_date']
+        key_tuples = [
+            tuple(m.get(c) for c in unique_cols)
+            for m in mappings
+        ]
+        existing = session.query(CropData).filter(
+            tuple_(*[getattr(CropData, c) for c in unique_cols]).in_(key_tuples)
+        ).all()
+        existing_keys = {
+            tuple(getattr(e, c) for c in unique_cols): e.check_sum
+            for e in existing
+        }
+        for m in mappings:
+            key = tuple(m.get(c) for c in unique_cols)
+            if key in existing_keys:
+                conflict = CropDataConflict(
+                    record_data=m,
+                    country=m.get('country'),
+                    province=m.get('province'),
+                    lon=m.get('lon'),
+                    lat=m.get('lat'),
+                    variety=m.get('variety'),
+                    season_type=m.get('season_type'),
+                    opt_date=m.get('opt_date'),
+                    check_sum=existing_keys[key],
+                    source='batch_insert',
+                )
+                session.add(conflict)
+        session.flush()
+
+    def batch_insert(self, crop_data: List[CropDataRecord]) -> int:
         if not crop_data:
             self.logger.warning("No records to insert.")
-            return
+            return 0
 
         session = self._get_session()
         try:
-            # Prepare the data for insertion
             mappings = [
                 {
                     **record.__dict__,
@@ -150,10 +183,20 @@ class CropDataRepo:
                 for record in crop_data
             ]
 
-            # Perform the bulk insert
-            session.bulk_insert_mappings(CropData, mappings)
+            stmt = insert(CropData).values(mappings)
+            stmt = stmt.on_conflict_do_nothing()
+            result = session.execute(stmt)
+            inserted = result.rowcount
+            self._log_conflicts(session, mappings, inserted)
             session.commit()
-            self.logger.info(f"Batch inserted {len(crop_data)} CropData records")
+            if inserted:
+                self.logger.info(
+                    f"Inserted {inserted} new CropData records "
+                    f"({len(mappings) - inserted} duplicates logged)"
+                )
+            else:
+                self.logger.info(f"All {len(mappings)} records were duplicates — logged")
+            return inserted
         except SQLAlchemyError as e:
             session.rollback()
             self.logger.error(f"Failed to batch insert CropData records: {e}")
