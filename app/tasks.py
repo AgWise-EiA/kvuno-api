@@ -23,7 +23,12 @@ def _get_worker_app():
     return _worker_app
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+_MAX_RETRIES = int(os.getenv('CELERY_TASK_MAX_RETRIES', '10'))
+_RETRY_DELAY = int(os.getenv('CELERY_TASK_RETRY_DELAY', '60'))
+
+
+@celery_app.task(bind=True, max_retries=_MAX_RETRIES, default_retry_delay=_RETRY_DELAY,
+                 autoretry_for=(Exception,))
 def process_file_task(self, file_path: str):
     app = _get_worker_app()
     with app.app_context():
@@ -32,7 +37,8 @@ def process_file_task(self, file_path: str):
         process_file(file_path=file_path, **housekeeping_settings())
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(bind=True, max_retries=_MAX_RETRIES, default_retry_delay=_RETRY_DELAY,
+                 autoretry_for=(Exception,))
 def process_pending_task(self):
     app = _get_worker_app()
     with app.app_context():
