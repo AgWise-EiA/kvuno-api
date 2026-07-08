@@ -8,7 +8,7 @@ class Unauthorized(BaseModel):
     message: str = Field("Unauthorized!", description="Exception Information", examples=["Unauthorized!"])
 
 
-class CropDataRecord(BaseModel):
+class PlantingRecommendationRecord(BaseModel):
     id: Optional[int] = Field(default=None, description="Record ID", examples=[1])
     lat: Optional[float] = Field(default=None, description="Latitude", examples=[-1.29])
     lon: Optional[float] = Field(default=None, description="Longitude", examples=[36.82])
@@ -22,8 +22,8 @@ class CropDataRecord(BaseModel):
     coordinates: Optional[str] = Field(default=None, description="WKT coordinate string", examples=["POINT(36.82 -1.29)"])
 
 
-class PlantingDataResponse(BaseModel):
-    data: List[CropDataRecord] = Field(default=[], description="List of crop data records")
+class PlantingRecommendationResponse(BaseModel):
+    data: List[PlantingRecommendationRecord] = Field(default=[], description="List of planting recommendation records")
     total: int = Field(..., description="Total number of records", examples=[150])
     pages: int = Field(..., description="Total number of pages", examples=[3])
     current_page: int = Field(..., description="Current page number", examples=[1])
