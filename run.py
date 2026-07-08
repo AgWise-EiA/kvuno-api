@@ -35,9 +35,8 @@ def main():
     debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     host = os.getenv('SERVER_HOST', default='0.0.0.0')
     port = os.getenv('SERVER_PORT', default=5000)
-    app.run(host=host, port=port, debug=debug, use_reloader=False)
 
+    app.run(host=host, port=port, debug=debug, use_reloader=debug)
 
 if __name__ == '__main__':
     main()
-
