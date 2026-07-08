@@ -32,7 +32,7 @@ app.app_context().push()  # Push the application context for use in the script
 
 if __name__ == '__main__':
     # Use environment variables
-    debug = os.getenv('FLASK_DEBUG') == '1'
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     host = os.getenv('SERVER_HOST', default='0.0.0.0')
     port = os.getenv('SERVER_PORT', default=5000)
     app.run(host=host, port=port, debug=debug)
