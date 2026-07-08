@@ -101,13 +101,16 @@ def run_sqlacodegen():
             '--outfile',
             outfile_path,
             '--tables',
-            ','.join(included_tables)
+            ','.join(included_tables),
+            '--options',
+            'use_inflect'
         ]
 
         result = subprocess.run(command, check=True, capture_output=True, text=True)
         logger.info("Output:\n" + result.stdout)
         if result.stderr:
             logger.error("Errors:\n" + result.stderr)
+
     except subprocess.CalledProcessError as e:
         logger.error(f"sqlacodegen failed with error: {e}")
         raise RuntimeError(f"sqlacodegen failed: {e}") from e
