@@ -8,27 +8,28 @@ Built for the [AgWISE-EiA](https://agwise.cgiar.org) initiative (Alliance for a 
 
 - **RDS File Ingestion** — Reads `.RDS` files using `pyreadr`, processes data in chunks with batch inserts
 - **Deduplication** — SHA-256 checksums track processed files to prevent duplicate imports
-- **Concurrent Processing** — Uses `ThreadPoolExecutor` for parallel RDS file ingestion
+- **Background Processing** — Celery + Redis worker for async file ingestion; separately deployable
 - **REST API** — OpenAPI 3.0 compliant, auto-generated docs at `/openapi`
 - **Paginated & Filterable Queries** — Filter by coordinates + radius, country, province, variety, season type, optimal date, planting option
 - **Spatial Data Support** — PostGIS `POINT` geometry (SRID 4326) with `ST_DWithin` radius filtering
 - **Multi-Database** — SQLite, MySQL, PostgreSQL compatible
 - **Health Check** — `GET /health` endpoint with database connectivity status
-- **Dockerized** — Dev and production Dockerfiles with docker-compose (PostgreSQL)
+- **Dockerized** — Dev and production Dockerfiles with docker-compose (PostgreSQL, Redis, Celery worker)
 - **Database Migrations** — Alembic-managed schema evolution
 - **CORS** — Cross-origin support enabled globally
 - **Request Rate Limiting** — Flask-Limiter available for route protection
 
 ## Tech Stack
 
-| Component | Technology |
-|---|---|
+ | Component | Technology |
+|---|---|---|
 | Framework | Flask (via flask-openapi3) |
 | ORM | SQLAlchemy (flask-sqlalchemy) |
 | Database | SQLite / PostgreSQL (psycopg2) |
 | Migrations | Alembic |
 | Spatial | GeoAlchemy2 / PostGIS |
 | RDS Parsing | pyreadr + pandas |
+| Background Tasks | Celery + Redis (Kombu transport) |
 | Logging | loguru |
 | Serving | Waitress (dev) / Gunicorn (prod) |
 | Containerization | Docker + docker-compose |
@@ -40,14 +41,19 @@ Built for the [AgWISE-EiA](https://agwise.cgiar.org) initiative (Alliance for a 
 kvuno/
 ├── app/
 │   ├── __init__.py           # Application factory (Flask OpenAPI)
+│   ├── celery_app.py         # Celery app instance
 │   ├── config.py             # App constants and configuration
 │   ├── gunicorn_config.py    # Gunicorn server configuration
+│   ├── tasks.py              # Celery task definitions
 │   ├── api/
 │   │   ├── planting_data.py  # Planting data API blueprint
+│   │   ├── upload.py         # File upload API blueprint
 │   │   └── user.py           # User auth API blueprint (stubs)
 │   ├── dto/
+│   │   ├── auth.py           # Auth request/response DTOs
 │   │   ├── crop_data_resp.py # Response DTOs (Pydantic models)
-│   │   └── data_filters.py   # Filter DTOs with validation
+│   │   ├── data_filters.py   # Filter DTOs with validation
+│   │   └── upload.py         # Upload request/response DTOs
 │   ├── models/
 │   │   ├── database_conn.py  # Database connection manager
 │   │   └── kvuno.py          # SQLAlchemy ORM models
@@ -70,6 +76,8 @@ kvuno/
 ├── docker-compose.yml        # Multi-service Docker setup
 ├── Dockerfile                # Dev Docker image
 ├── Dockerfile.prod.dockerfile# Production Docker image
+├── Dockerfile.worker         # Celery worker Docker image
+├── dev.bat                   # Windows dev launcher
 ├── housekeeping.py           # RDS file processing ETL script
 ├── model-generator.py        # ORM model code generator
 ├── pyproject.toml            # Project metadata and dependencies
@@ -127,24 +135,30 @@ alembic upgrade head
 alembic revision --autogenerate -m "description"
 ```
 
-### Running the Application
+### Running the Application (Development)
 
 ```bash
-# Development server
+# API server only (no background processing)
 python run.py
+```
 
-# Production with Gunicorn
-gunicorn wsgi:app -c app/gunicorn_config.py
+```bash
+# With background processing (requires Redis + Celery worker)
+celery -A app.celery_app worker --loglevel=info  # separate terminal
 ```
 
 The API will be available at `http://localhost:5000` and the OpenAPI docs at `http://localhost:5000/openapi`.
 
-### Docker Deployment
+Set `HOUSEKEEPING_ENABLED=false` (default) to skip the 2-second probe for a Celery worker.
 
-A `docker-compose.yml` runs the Flask API alongside PostgreSQL with a single command:
+Set `HOUSEKEEPING_ENABLED=true` to enqueue file-uploads to the Celery worker automatically.
+
+### Docker Deployment (Full Stack)
+
+A `docker-compose.yml` runs the Flask API alongside PostgreSQL, Redis, and the Celery worker:
 
 ```bash
-# Build and start both services
+# Build and start all services
 docker compose up --build -d
 
 # Run database migrations
@@ -154,36 +168,86 @@ docker compose exec kvuno alembic upgrade head
 curl http://localhost:5000/health
 ```
 
-Two image variants are provided:
+Three image variants are provided:
 - **`Dockerfile`** — dev image with Flask dev server
 - **`Dockerfile.prod.dockerfile`** — production image with Gunicorn
+- **`Dockerfile.worker`** — standalone Celery worker image
+
+### Docker — Individual Services
+
+Start only specific services:
+
+```bash
+# API + Postgres (no background processing)
+docker compose up -d kvuno db
+
+# Just Redis (for local Celery worker)
+docker compose up -d redis
+
+# Full stack: API + Postgres + Redis + Celery worker
+docker compose up --build -d
+```
+
+### Local Development without Postgres
+
+The app runs with SQLite for local development — no Postgres needed:
+
+```bash
+# Edit .env
+DB_DRIVER=sqlite
+DB_NAME=kvuno.db
+HOUSEKEEPING_ENABLED=false
+
+# Run
+python run.py
+```
+
+### Local Development without Redis / Celery
+
+When `HOUSEKEEPING_ENABLED=false` (default), the app runs entirely without Redis:
+
+- The API serves data normally
+- File uploads return a warning response saying no worker is available
+- Set `HOUSEKEEPING_ENABLED=true` to enable background enqueuing (requires Redis accessible)
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full details on Compose configuration, environment variables, running commands inside containers, and troubleshooting.
 
 ## Usage
 
-### Housekeeping Script
+### File Processing (Background Worker)
 
-The `housekeeping.py` script ingests `.RDS` and `.parquet` files into the database with checkpoint-based resumability, deduplication, and graceful shutdown.
+File ingestion is handled by a Celery worker. When `HOUSEKEEPING_ENABLED=true`, the `/api/v1/upload/` endpoint enqueues a task; the Celery worker processes it asynchronously.
 
 ```bash
-# Process all files in the default directory (static/data/)
+# Start Redis (Docker)
+docker compose up -d redis
+
+# Start the Celery worker (Native — Linux)
+celery -A app.celery_app worker --loglevel=info
+
+# Start the Celery worker (Native — Windows, use solo pool)
+celery -A app.celery_app worker --loglevel=info --pool solo
+
+# Start the Celery worker (Docker)
+docker compose up --build -d worker
+```
+
+### Legacy Housekeeping Script
+
+The `housekeeping.py` script processes files directly (without Celery) — useful for one-off bulk imports:
+
+```bash
+# Process all files in static/data/
 python housekeeping.py
 
-# Process files in a custom directory
+# Custom directory
 python housekeeping.py /path/to/data
 
-# Dry-run — scan files without modifying the database
+# Dry-run
 python housekeeping.py --dry-run
 
-# Watch mode — process files as they arrive
+# Watch mode
 python housekeeping.py --watch
-
-# Tune batch sizes and checkpoint frequency
-python housekeeping.py --batch-size 2000 --chunk-size 10000 --checkpoint-interval 50
-
-# Combine flags
-python housekeeping.py --watch --dry-run /path/to/data
 ```
 
 What happens during a run:
@@ -217,6 +281,7 @@ python -c "from app.utils.rds_to_parquet import batch_convert; batch_convert('st
 | `GET` | `/` | Redirects to `/openapi` (Swagger UI) |
 | `GET` | `/health` | Health check with database status |
 | `GET` | `/api/v1/planting-data/` | Paginated, filterable crop data |
+| `POST` | `/api/v1/upload/` | Upload an RDS/parquet file for processing |
 | `POST` | `/api/v1/users/register` | User registration (stub) |
 | `POST` | `/api/v1/users/login` | User login (stub) |
 
@@ -242,21 +307,22 @@ python -c "from app.utils.rds_to_parquet import batch_convert; batch_convert('st
   "data": [
     {
       "id": 1,
-      "coordinates": {"lat": -17.85, "lon": 25.92},
+      "lat": -17.85,
+      "lon": 25.92,
       "country": "Zambia",
       "province": "Southern",
       "variety": "Soybean",
       "season_type": "Main",
       "opt_date": "2024-11-15",
-      "planting_option": "Option A"
+      "planting_option": 1,
+      "check_sum": "a1b2c3d4e5f6...",
+      "coordinates": "POINT(25.92 -17.85)"
     }
   ],
-  "pagination": {
-    "total": 42,
-    "pages": 5,
-    "current_page": 1,
-    "per_page": 10
-  }
+  "total": 42,
+  "pages": 5,
+  "current_page": 1,
+  "per_page": 10
 }
 ```
 
@@ -273,11 +339,22 @@ Key environment variables (see `.env.example`):
 | `DB_USER` | Database user | `postgres` |
 | `DB_PASSWORD` | Database password | `postgres` |
 | `DB_NAME` | Database name | `agwise_api` |
-| `FLASK_DEBUG` | Enable debug mode | `1` |
+| `FLASK_DEBUG` | Enable debug mode | `false` |
 | `SERVER_HOST` | Bind address | `0.0.0.0` |
 | `SERVER_PORT` | Bind port | `5000` |
 | `LOG_LEVEL` | Logging level | `DEBUG` |
 | `SERVER_URL_PROD` | Production server URL | — |
+| `HOUSEKEEPING_ENABLED` | Enable Celery background processing | `false` |
+| `HOUSEKEEPING_MAX_WORKERS` | Max concurrent file-processing subtasks | `1` |
+| `CELERY_BROKER_URL` | Redis URL for Celery broker | `redis://localhost:6379/0` |
+| `CELERY_RESULT_BACKEND` | Redis URL for Celery results | `redis://localhost:6379/0` |
+| `CELERY_TASK_DEFAULT_QUEUE` | Queue name for task isolation | `kvuno` |
+| `CELERY_TASK_MAX_RETRIES` | Max retries per task | `3` |
+| `CELERY_TASK_RETRY_DELAY` | Retry delay in seconds | `60` |
+| `REMOTE_RDS_URLS` | Semicol.-delimited remote file URLs | — |
+| `REMOTE_RDS_TOKEN` | Bearer token for remote downloads | — |
+| `REMOTE_RDS_COOKIES` | Cookie header for remote downloads | — |
+| `REMOTE_RDS_HEADERS` | Custom headers (key:value; key:value) | — |
 
 ## CI/CD
 
