@@ -10,9 +10,8 @@ from typing import Optional
 import requests
 
 from app.utils.logging import SharedLogger
-import logging
 
-_shared_logger = SharedLogger(level=logging.DEBUG)
+_shared_logger = SharedLogger()
 _logger = _shared_logger.get_logger()
 
 DEFAULT_DATA_DIR = os.path.join("static", "data")
