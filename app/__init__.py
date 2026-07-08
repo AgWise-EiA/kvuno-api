@@ -7,12 +7,57 @@ from flask_openapi3 import OpenAPI, Server, Contact, License, Info
 from alembic import command
 from alembic.config import Config as AlembicConfig
 
+from pathlib import Path
+import json
+import shutil
+
 from app.models.database_conn import MyDb
 from app.routes.main import register_app_routes
 from app.config import build_db_url, APP_NAME, APP_VERSION
 
 # Load environment variables from .env file
 load_dotenv()
+
+def _cleanup_temp_files():
+    data_dir = Path(os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join('static', 'data')))
+    if not data_dir.is_dir():
+        return
+
+    import logging
+    import time
+    log = logging.getLogger(__name__)
+
+    chunks_dir = data_dir / '.chunks'
+    if chunks_dir.is_dir():
+        shutil.rmtree(chunks_dir)
+        log.info("Cleaned up chunks directory")
+
+    raw = os.getenv('CLEANUP_AGE', '1d')
+    unit = raw[-1]
+    value = int(raw[:-1])
+    multipliers = {'m': 60, 'h': 3600, 'd': 86400, 'w': 604800}
+    cutoff = time.time() - value * multipliers.get(unit, 86400)
+
+    for p in data_dir.glob('*.progress.json'):
+        try:
+            with open(p) as f:
+                job = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        if job.get('status') != 'completed':
+            continue
+        if p.stat().st_mtime > cutoff:
+            continue
+        stem = p.stem.replace('.progress', '')
+        for suffix in ('.rds', '.parquet', '.progress.json', '.meta.json', '.map.json'):
+            target = data_dir / f"{stem}{suffix}"
+            try:
+                if target.is_file():
+                    target.unlink()
+                    log.info("Removed processed file: %s", target.name)
+            except OSError:
+                pass
+
 
 # API contact information
 contact = Contact(
@@ -119,9 +164,18 @@ def create_app():
         with app.app_context():
             run_migrations()
 
+    @app.template_filter('datetime')
+    def datetime_filter(ts):
+        from datetime import datetime
+        return datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+
     # Register APIs and other routes
     register_apis(app)
     register_app_routes(app)
+
+    # Clean up temporary files from previous runs
+    with app.app_context():
+        _cleanup_temp_files()
 
     # Enqueue background processing of any unprocessed files via Celery
     if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
