@@ -24,7 +24,6 @@ TABLE_NAME = 'planting_recommendations'
 
 def upgrade() -> None:
 
-    # Ensure PostGIS extension is available
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
 
     op.create_table(
@@ -48,7 +47,7 @@ def upgrade() -> None:
         ['country', 'province', 'lon', 'lat', 'variety', 'season_type', 'opt_date'],
     )
     op.create_index('idx_check_sum', TABLE_NAME, ['check_sum'])
-    op.create_index('idx_coordinates', TABLE_NAME, ['coordinates'],postgresql_using='gist')
+    op.create_index('idx_coordinates', TABLE_NAME, ['coordinates'], postgresql_using='gist')
     op.create_index('idx_country', TABLE_NAME, ['country'])
     op.create_index('idx_lat', TABLE_NAME, ['lat'])
     op.create_index('idx_lon', TABLE_NAME, ['lon'])
