@@ -51,15 +51,15 @@ kvuno/
 │   │   └── user.py           # User auth API blueprint (stubs)
 │   ├── dto/
 │   │   ├── auth.py           # Auth request/response DTOs
-│   │   ├── crop_data_resp.py # Response DTOs (Pydantic models)
+│   │   ├── planting_recommendation.py # Response DTOs (Pydantic models)
 │   │   ├── data_filters.py   # Filter DTOs with validation
 │   │   └── upload.py         # Upload request/response DTOs
 │   ├── models/
 │   │   ├── database_conn.py  # Database connection manager
 │   │   └── kvuno.py          # SQLAlchemy ORM models
 │   ├── repo/
-│   │   ├── crop_data.py      # CropData repository (CRUD + filtering)
-│   │   └── processed_files.py # ProcessedFiles repository
+│   │   ├── planting_recommendation.py # PlantingRecommendation repo
+│   │   └── file_import.py    # FileImport repository
 │   ├── routes/
 │   │   └── main.py           # App routes (/, /health)
 │   └── utils/
@@ -253,7 +253,7 @@ python housekeeping.py --watch
 What happens during a run:
 1. **Health check** — `SELECT 1` confirms the database is reachable
 2. **Remote download** — Downloads files from `REMOTE_RDS_URLS` (if configured)
-3. **Deduplication** — SHA-256 checksum lookup in `processed_files` table; fully processed files are skipped
+3. **Deduplication** — SHA-256 checksum lookup in `file_imports` table; fully imported files are skipped
 4. **Resumable processing** — Files with a stored `offset` resume from that row; incremental checkpoints commit every `checkpoint_interval` batches
 5. **Batch insert** — Records are inserted in savepoint-protected batches; individual batch failures are logged and skipped
 6. **Graceful shutdown** — `Ctrl+C` (or `SIGTERM`) commits completed batches and persists the offset for later resumption; a second `Ctrl+C` force-quits immediately
