@@ -115,8 +115,8 @@ def emit_event(event: str, **kwargs):
 
 # ── Column mapping ─────────────────────────────────────────────
 
-def load_column_map() -> dict[str, str]:
-    """Load column name mapping from RDS_COLUMN_MAP env var (JSON), falling back to defaults."""
+def load_column_map(file_path: str | None = None) -> dict[str, str]:
+    """Load column name mapping from env var, overridden by a per-file .map.json if present."""
     default_map = {
         'country': 'country',
         'province': 'province',
@@ -134,7 +134,29 @@ def load_column_map() -> dict[str, str]:
             default_map.update(overrides)
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"Invalid RDS_COLUMN_MAP JSON, using defaults: {e}")
+
+    if file_path:
+        mapping_path = file_path + '.map.json'
+        if os.path.isfile(mapping_path):
+            try:
+                with open(mapping_path) as f:
+                    per_file = json.load(f)
+                default_map.update(per_file)
+                logger.info(f"Applied per-file column mapping from {mapping_path}")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load per-file mapping {mapping_path}: {e}")
+
     return default_map
+
+
+def _write_progress(file_path: str, status: str, current: int, total: int, message: str = ""):
+    """Write processing progress to a JSON file alongside the data file."""
+    try:
+        payload = {"status": status, "current": current, "total": total, "message": message}
+        with open(file_path + '.progress.json', 'w') as f:
+            json.dump(payload, f)
+    except OSError as e:
+        logger.warning(f"Failed to write progress file: {e}")
 
 
 # ── DB helpers ─────────────────────────────────────────────────
@@ -277,7 +299,17 @@ def process_file(
     start_time = time.time()
     file_name = os.path.basename(file_path)
 
-    column_map = load_column_map()
+    original_filename = ""
+    meta_path = file_path + '.meta.json'
+    if os.path.isfile(meta_path):
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+            original_filename = meta.get('original_name', '')
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    column_map = load_column_map(file_path=file_path)
 
     with _get_app().app_context():
         checksum = None
@@ -310,6 +342,7 @@ def process_file(
                 result = pyreadr.read_r(file_path)
                 data = result[None]
             num_rows = len(data)
+            _write_progress(file_path, 'processing', resume_offset, num_rows, 'Processing…')
 
             if resume_offset >= num_rows:
                 logger.warning(f"File {file_name} offset ({resume_offset}) >= total rows ({num_rows}), skipping")
@@ -397,16 +430,18 @@ def process_file(
 
                     if not shutdown_requested:
                         last_committed_row = chunk_end
+                        _write_progress(file_path, 'processing', last_committed_row, num_rows)
 
                     if batches_since_checkpoint >= checkpoint_interval and not shutdown_requested:
                         session.commit()
-                        file_import_repo.upsert_offset(checksum, file_name, chunk_end)
+                        file_import_repo.upsert_offset(checksum, file_name, chunk_end, original_filename)
                         batches_since_checkpoint = 0
                         logger.debug(f"Checkpoint committed at row {chunk_end}")
                     if shutdown_requested:
                         break
 
             except BaseException:
+                _write_progress(file_path, 'error', last_committed_row, num_rows, "Interrupted")
                 pbar.close()
                 session.rollback()
                 raise
@@ -422,21 +457,24 @@ def process_file(
                        failed_batches=failed_batches, shutdown=shutdown_requested)
 
             if shutdown_requested:
-                file_import_repo.upsert_offset(checksum, file_name, last_committed_row)
+                file_import_repo.upsert_offset(checksum, file_name, last_committed_row, original_filename)
                 logger.warning(
                     f"Graceful shutdown — committed {completed_batches} batches from {file_name}, "
                     f"offset {last_committed_row} persisted"
                 )
             else:
-                file_import_repo.upsert_offset(checksum, file_name, num_rows)
+                file_import_repo.upsert_offset(checksum, file_name, num_rows, original_filename)
+                _write_progress(file_path, 'completed', num_rows, num_rows, "Done")
                 logger.info(f"File {file_name} fully processed and recorded")
 
             if failed_batches:
                 logger.warning(f"File {file_name} processed with {failed_batches} failed batch(es)")
 
         except FileNotFoundError as e:
+            _write_progress(file_path, 'error', 0, 0, str(e))
             logger.error(f"Failed to process file {file_name}: {e}")
         except Exception as e:
+            _write_progress(file_path, 'error', 0, 0, str(e))
             logger.error(f"Unexpected error processing file {file_name}: {e}")
         finally:
             elapsed_time = time.time() - start_time
