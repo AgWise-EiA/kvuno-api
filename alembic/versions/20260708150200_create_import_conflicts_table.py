@@ -1,8 +1,8 @@
-"""create crop_data_conflicts table
+"""create_import_conflicts_table
 
-Revision ID: 4a5b6c7d8e9f
-Revises: 1087d27a075e
-Create Date: 2026-07-08 14:45:00.000000
+Revision ID: c3d4e5f6a7b8
+Revises: b2c3d4e5f6a7
+Create Date: 2026-07-08 15:02:00.000000
 
 """
 from typing import Sequence, Union
@@ -13,15 +13,17 @@ import sqlalchemy as sa
 from app.utils.migration_utils import get_integer_column_type
 
 # revision identifiers, used by Alembic.
-revision: str = '4a5b6c7d8e9f'
-down_revision: Union[str, None] = '1087d27a075e'
+revision: str = 'c3d4e5f6a7b8'
+down_revision: Union[str, None] = 'b2c3d4e5f6a7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+TABLE_NAME = 'import_conflicts'
 
 
 def upgrade() -> None:
     op.create_table(
-        'crop_data_conflicts',
+        TABLE_NAME,
         sa.Column('id', get_integer_column_type(), primary_key=True, autoincrement=True),
         sa.Column('record_data', sa.JSON, nullable=False),
         sa.Column('country', sa.String(20)),
@@ -35,8 +37,8 @@ def upgrade() -> None:
         sa.Column('source', sa.String(50)),
         sa.Column('created_at', sa.DateTime, server_default=sa.text('now()')),
     )
-    op.create_index('idx_conflict_created_at', 'crop_data_conflicts', ['created_at'])
+    op.create_index('idx_conflict_created_at', TABLE_NAME, ['created_at'])
 
 
 def downgrade() -> None:
-    op.drop_table('crop_data_conflicts')
+    op.drop_table(TABLE_NAME)
