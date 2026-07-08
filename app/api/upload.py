@@ -7,7 +7,6 @@ from flask_openapi3 import Tag, APIBlueprint
 
 from app.config import API_PREFIX, API_VERSION
 from app.dto.upload import UploadResponse
-from app.tasks import process_file_task as process_file
 
 __bp__ = "/data"
 url_prefix = API_PREFIX + API_VERSION + __bp__
@@ -44,6 +43,9 @@ def upload_file():
     dest = os.path.join(DATA_DIR, unique_name)
     f.save(dest)
 
-    process_file.delay(file_path=dest)
+    if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
+        from app.services.housekeeper import process_file_async
+        process_file_async(file_path=dest)
+        return {"message": "File accepted for background processing", "file": unique_name}, 202
 
-    return {"message": "File accepted for processing", "file": unique_name}, 202
+    return {"message": "File saved. Set HOUSEKEEPING_ENABLED=true and start a Celery worker for background processing.", "file": unique_name}, 202
