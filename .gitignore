@@ -8,3 +8,4 @@ __pycache__/
 data-old
 kvuno.db
 kvuno.db.journal
+/data/
