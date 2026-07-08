@@ -6,130 +6,122 @@ from sqlalchemy import func, insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query
 
-from app.dto.crop_data_resp import CropDataRecord
+from app.dto.planting_recommendation import PlantingRecommendationRecord
 from app.dto.data_filters import PlantingDataFilter
 from app.models.database_conn import MyDb
-from app.models.kvuno import CropData, CropDataConflict
+from app.models.kvuno import PlantingRecommendation, ImportConflict
 from app.utils.logging import SharedLogger
 
 shared_logger = SharedLogger()
 
 
-class CropDataRepo:
+class PlantingRecommendationRepo:
     def __init__(self):
         self.logger = shared_logger.get_logger()
 
     def _get_session(self):
-        # Ensure that `MyDb` has been initialized with a Flask app
         self.db = MyDb.get_db()
         return self.db.session
 
-    def add(self, crop_data: CropData) -> CropData:
+    def add(self, record: PlantingRecommendation) -> PlantingRecommendation:
         session = self._get_session()
         try:
-            session.add(crop_data)
+            session.add(record)
             session.commit()
-            session.refresh(crop_data)
-            self.logger.info(f"Added PlantingData with ID: {crop_data.id}")
-            return crop_data
+            session.refresh(record)
+            self.logger.info(f"Added PlantingRecommendation with ID: {record.id}")
+            return record
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Failed to add PlantingData: {e}")
+            self.logger.error(f"Failed to add PlantingRecommendation: {e}")
             raise
 
-    def get_by_id(self, planting_id: int) -> Optional[CropData]:
+    def get_by_id(self, record_id: int) -> Optional[PlantingRecommendation]:
         session = self._get_session()
         try:
-            crop_data = session.query(CropData).filter_by(id=planting_id).first()
-            self.logger.info(f"Retrieved PlantingData with ID: {planting_id}")
-            return crop_data
+            record = session.query(PlantingRecommendation).filter_by(id=record_id).first()
+            self.logger.info(f"Retrieved PlantingRecommendation with ID: {record_id}")
+            return record
         except Exception as e:
-            self.logger.error(f"Failed to retrieve PlantingData with ID {planting_id}: {e}")
+            self.logger.error(f"Failed to retrieve PlantingRecommendation with ID {record_id}: {e}")
             raise
 
-    def get_all(self, page, per_page) -> list[Type[CropData]]:
+    def get_all(self, page, per_page) -> list[Type[PlantingRecommendation]]:
         session = self._get_session()
         offset = (page - 1) * per_page
         try:
-            crop_data_list = (session.query(CropData)
-                              .offset(offset)
-                              .limit(per_page)
-                              .all())
-
-            self.logger.info("Retrieved all PlantingData records")
-            return crop_data_list
+            records = (session.query(PlantingRecommendation)
+                       .offset(offset)
+                       .limit(per_page)
+                       .all())
+            self.logger.info("Retrieved all PlantingRecommendation records")
+            return records
         except Exception as e:
-            self.logger.error(f"Failed to retrieve all PlantingData records: {e}")
+            self.logger.error(f"Failed to retrieve all PlantingRecommendation records: {e}")
             raise
 
     def get_filtered_data(self, filters: PlantingDataFilter) -> Query:
-
         session = self._get_session()
-
-        query = session.query(CropData)
+        query = session.query(PlantingRecommendation)
 
         if filters.coordinates and filters.radius:
             lon, lat = map(float, filters.coordinates.split(","))
             point = WKTElement(f'POINT({lon} {lat})', srid=4326)
-
-            # Filter by radius using ST_DWithin and calculate distance using ST_Distance
             query = query.filter(
-                func.ST_DWithin(CropData.coordinates, point, filters.radius)
+                func.ST_DWithin(PlantingRecommendation.coordinates, point, filters.radius)
             )
         if filters.country:
-            query = query.filter(CropData.country == filters.country)
+            query = query.filter(PlantingRecommendation.country == filters.country)
         if filters.province:
-            # Perform partial search for province
-            query = query.filter(CropData.province.ilike(f"%{filters.province}%"))
+            query = query.filter(PlantingRecommendation.province.ilike(f"%{filters.province}%"))
         if filters.variety:
-            query = query.filter(CropData.variety == filters.variety)
+            query = query.filter(PlantingRecommendation.variety == filters.variety)
         if filters.season_type:
-            query = query.filter(CropData.season_type == filters.season_type)
+            query = query.filter(PlantingRecommendation.season_type == filters.season_type)
         if filters.opt_date:
-            query = query.filter(CropData.opt_date == filters.opt_date)
+            query = query.filter(PlantingRecommendation.opt_date == filters.opt_date)
         if filters.planting_option is not None:
-            query = query.filter(CropData.planting_option == filters.planting_option)
+            query = query.filter(PlantingRecommendation.planting_option == filters.planting_option)
 
-        query = query.order_by(CropData.id)
+        query = query.order_by(PlantingRecommendation.id)
         return query
 
     def get_paginated_data(self, filters: PlantingDataFilter, page: int, per_page: int) -> QueryPagination:
         query = self.get_filtered_data(filters)
-
         return query.paginate(page=page, per_page=per_page, error_out=False)
 
-    def update(self, crop_data: CropData) -> CropData:
+    def update(self, record: PlantingRecommendation) -> PlantingRecommendation:
         session = self._get_session()
         try:
             session.commit()
-            session.refresh(crop_data)
-            self.logger.info(f"Updated PlantingData with ID: {crop_data.id}")
-            return crop_data
+            session.refresh(record)
+            self.logger.info(f"Updated PlantingRecommendation with ID: {record.id}")
+            return record
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Failed to update PlantingData with ID {crop_data.id}: {e}")
+            self.logger.error(f"Failed to update PlantingRecommendation with ID {record.id}: {e}")
             raise
 
-    def delete(self, crop_data: CropData) -> None:
+    def delete(self, record: PlantingRecommendation) -> None:
         session = self._get_session()
         try:
-            session.delete(crop_data)
+            session.delete(record)
             session.commit()
-            self.logger.info(f"Deleted PlantingData with ID: {crop_data.id}")
+            self.logger.info(f"Deleted PlantingRecommendation with ID: {record.id}")
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Failed to delete PlantingData with ID {crop_data.id}: {e}")
+            self.logger.error(f"Failed to delete PlantingRecommendation with ID {record.id}: {e}")
             raise
 
-    def find_by_checksum(self, check_sum: str) -> Optional[CropData]:
+    def find_by_checksum(self, check_sum: str) -> Optional[PlantingRecommendation]:
         session = self._get_session()
         try:
-            crop_data = (session.query(CropData)
-                         .filter_by(check_sum=check_sum).first())
-            self.logger.info(f"Retrieved PlantingData with checksum: {check_sum}")
-            return crop_data
+            record = (session.query(PlantingRecommendation)
+                      .filter_by(check_sum=check_sum).first())
+            self.logger.info(f"Retrieved PlantingRecommendation with checksum: {check_sum}")
+            return record
         except Exception as e:
-            self.logger.error(f"Failed to find PlantingData with checksum {check_sum}: {e}")
+            self.logger.error(f"Failed to find PlantingRecommendation with checksum {check_sum}: {e}")
             raise
 
     def _log_conflicts(self, session, mappings, inserted_count):
@@ -141,8 +133,8 @@ class CropDataRepo:
             tuple(m.get(c) for c in unique_cols)
             for m in mappings
         ]
-        existing = session.query(CropData).filter(
-            tuple_(*[getattr(CropData, c) for c in unique_cols]).in_(key_tuples)
+        existing = session.query(PlantingRecommendation).filter(
+            tuple_(*[getattr(PlantingRecommendation, c) for c in unique_cols]).in_(key_tuples)
         ).all()
         existing_keys = {
             tuple(getattr(e, c) for c in unique_cols): e.check_sum
@@ -151,7 +143,7 @@ class CropDataRepo:
         for m in mappings:
             key = tuple(m.get(c) for c in unique_cols)
             if key in existing_keys:
-                conflict = CropDataConflict(
+                conflict = ImportConflict(
                     record_data=m,
                     country=m.get('country'),
                     province=m.get('province'),
@@ -166,8 +158,8 @@ class CropDataRepo:
                 session.add(conflict)
         session.flush()
 
-    def batch_insert(self, crop_data: List[CropDataRecord]) -> int:
-        if not crop_data:
+    def batch_insert(self, records: List[PlantingRecommendationRecord]) -> int:
+        if not records:
             self.logger.warning("No records to insert.")
             return 0
 
@@ -180,10 +172,10 @@ class CropDataRepo:
                     if record.lat and record.lon
                     else None
                 }
-                for record in crop_data
+                for record in records
             ]
 
-            stmt = insert(CropData).values(mappings)
+            stmt = insert(PlantingRecommendation).values(mappings)
             stmt = stmt.on_conflict_do_nothing()
             result = session.execute(stmt)
             inserted = result.rowcount
@@ -191,7 +183,7 @@ class CropDataRepo:
             session.commit()
             if inserted:
                 self.logger.info(
-                    f"Inserted {inserted} new CropData records "
+                    f"Inserted {inserted} new PlantingRecommendation records "
                     f"({len(mappings) - inserted} duplicates logged)"
                 )
             else:
@@ -199,7 +191,7 @@ class CropDataRepo:
             return inserted
         except SQLAlchemyError as e:
             session.rollback()
-            self.logger.error(f"Failed to batch insert CropData records: {e}")
+            self.logger.error(f"Failed to batch insert PlantingRecommendation records: {e}")
             raise
         except Exception as e:
             session.rollback()
