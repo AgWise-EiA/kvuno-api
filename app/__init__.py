@@ -48,8 +48,33 @@ def init_db(app):
     MyDb.init_app(app)
 
 
+def _db_available() -> bool:
+    """Check if the database host:port is reachable (non-blocking)."""
+    from urllib.parse import urlparse
+    import socket
+    url = build_db_url()
+    if url.startswith('sqlite'):
+        return True
+    parts = urlparse(url)
+    host = parts.hostname or '127.0.0.1'
+    port = parts.port or 5432
+    try:
+        s = socket.create_connection((host, port), timeout=2)
+        s.close()
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def run_migrations():
     """Run pending Alembic migrations at startup."""
+    if not _db_available():
+        import logging
+        logging.warning(
+            f"Database at {build_db_url()} is not reachable — skipping migrations. "
+            f"Set RUN_MIGRATION=false to suppress this check."
+        )
+        return
     alembic_cfg = AlembicConfig("alembic.ini")
     alembic_cfg.set_main_option("sqlalchemy.url", build_db_url())
     command.upgrade(alembic_cfg, "head")
@@ -90,8 +115,9 @@ def create_app():
     init_db(app)
 
     # Run pending Alembic migrations
-    with app.app_context():
-        run_migrations()
+    if os.getenv('RUN_MIGRATION', 'true').lower() == 'true':
+        with app.app_context():
+            run_migrations()
 
     # Register APIs and other routes
     register_apis(app)

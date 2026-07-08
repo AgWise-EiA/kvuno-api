@@ -8,6 +8,7 @@ import concurrent.futures
 import json
 import os
 import signal
+import threading
 import time
 
 import pandas as pd
@@ -512,6 +513,58 @@ def watch_directory(
         observer.join()
 
 
+# ── Celery helpers ─────────────────────────────────────────────
+
+def _celery_available() -> bool:
+    """Check if Redis/Celery broker is reachable (non-blocking)."""
+    import socket
+    from urllib.parse import urlparse
+    url = urlparse(os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+    host = url.hostname or 'localhost'
+    port = url.port or 6379
+    try:
+        s = socket.create_connection((host, port), timeout=2)
+        s.close()
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def _enqueue_or_warn(task, **kwargs):
+    """Enqueue a Celery task, or log a warning if the broker is unreachable."""
+    if not _celery_available():
+        logger.warning(
+            f"Cannot enqueue {task.__name__} — Redis at "
+            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')} "
+            f"is not reachable. Start Redis or disable HOUSEKEEPING_ENABLED."
+        )
+        return
+
+    result = []
+
+    def _send():
+        try:
+            r = task.delay(**kwargs)
+            result.append(r)
+        except Exception as e:
+            result.append(e)
+
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
+    t.join(timeout=5)
+
+    if t.is_alive():
+        logger.warning(
+            f"Timed out enqueuing {task.__name__} — Redis at "
+            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')} "
+            f"is not responding. Start Redis or disable HOUSEKEEPING_ENABLED."
+        )
+        return
+
+    if result and isinstance(result[0], Exception):
+        logger.warning(f"Failed to enqueue {task.__name__}: {result[0]}")
+
+
 # ── Async wrappers (Flask integration) ─────────────────────────
 
 def process_file_async(file_path: str, app=None):
@@ -520,10 +573,7 @@ def process_file_async(file_path: str, app=None):
     Used by the upload API endpoint.
     """
     from app.tasks import process_file_task
-    process_file_task.delay(file_path=file_path)
-
-
-_STARTUP_LOCK_ID = 42_042_042_042  # arbitrary bigint for pg_try_advisory_lock
+    _enqueue_or_warn(process_file_task, file_path=file_path)
 
 
 def process_pending(app=None):
@@ -532,7 +582,7 @@ def process_pending(app=None):
     Called once at Flask app startup.
     """
     from app.tasks import process_pending_task
-    process_pending_task.delay()
+    _enqueue_or_warn(process_pending_task)
 
 
 # ── CLI dispatcher ─────────────────────────────────────────────
