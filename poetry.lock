@@ -1948,10 +1948,7 @@ files = [
 [package.extras]
 dev = ["pytest", "setuptools"]
 
-[extras]
-watch = ["watchdog"]
-
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "b39f334b3367677fc5ad4103f011b787b673d5d4da4a39586a2e236d16d8dec6"
+content-hash = "a8735c5905307b3d4a7c5aa6840fa302f7a62a4851fb40d827bf83257378ee65"
