@@ -34,7 +34,9 @@ def process_file_task(self, file_path: str):
     with app.app_context():
         from app.services.housekeeper import process_file, housekeeping_settings, set_app
         set_app(app)
-        process_file(file_path=file_path, **housekeeping_settings())
+        settings = housekeeping_settings()
+        settings.pop('max_workers', None)
+        process_file(file_path=file_path, **settings)
 
 
 @celery_app.task(bind=True, max_retries=_MAX_RETRIES, default_retry_delay=_RETRY_DELAY,
