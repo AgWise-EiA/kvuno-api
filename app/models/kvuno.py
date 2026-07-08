@@ -2,32 +2,13 @@ from typing import Any, Optional
 import datetime
 
 from geoalchemy2.types import Geometry
-from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, PrimaryKeyConstraint, REAL, String, Text, UniqueConstraint, text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, PrimaryKeyConstraint, REAL, String, UniqueConstraint, \
+    text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
 
 class Base(DeclarativeBase):
     pass
-
-
-class CropDataConflict(Base):
-    __tablename__ = 'crop_data_conflicts'
-    __table_args__ = (
-        PrimaryKeyConstraint('id', name='crop_data_conflicts_pkey'),
-        Index('idx_conflict_created_at', 'created_at'),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    record_data: Mapped[dict] = mapped_column(JSON, nullable=False)
-    country: Mapped[Optional[str]] = mapped_column(String(20))
-    province: Mapped[Optional[str]] = mapped_column(String(20))
-    lon: Mapped[Optional[float]] = mapped_column(REAL)
-    lat: Mapped[Optional[float]] = mapped_column(REAL)
-    variety: Mapped[Optional[str]] = mapped_column(String(20))
-    season_type: Mapped[Optional[str]] = mapped_column(String(20))
-    opt_date: Mapped[Optional[str]] = mapped_column(String(8))
-    check_sum: Mapped[Optional[str]] = mapped_column(String(100))
-    source: Mapped[Optional[str]] = mapped_column(String(50))
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
 
 
 class CropData(Base):
@@ -50,7 +31,8 @@ class CropData(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    coordinates: Mapped[Any] = mapped_column(Geometry('POINT', 4326, 2, from_text='ST_GeomFromEWKT', name='geometry', nullable=False), nullable=False)
+    coordinates: Mapped[Any] = mapped_column(
+        Geometry('POINT', 4326, 2, from_text='ST_GeomFromEWKT', name='geometry', nullable=False), nullable=False)
     check_sum: Mapped[str] = mapped_column(String(100), nullable=False)
     country: Mapped[Optional[str]] = mapped_column(String(20))
     province: Mapped[Optional[str]] = mapped_column(String(20))
@@ -62,6 +44,27 @@ class CropData(Base):
     planting_option: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
+
+
+class CropDataConflicts(Base):
+    __tablename__ = 'crop_data_conflicts'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='crop_data_conflicts_pkey'),
+        Index('idx_conflict_created_at', 'created_at')
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    record_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    country: Mapped[Optional[str]] = mapped_column(String(20))
+    province: Mapped[Optional[str]] = mapped_column(String(20))
+    lon: Mapped[Optional[float]] = mapped_column(REAL)
+    lat: Mapped[Optional[float]] = mapped_column(REAL)
+    variety: Mapped[Optional[str]] = mapped_column(String(20))
+    season_type: Mapped[Optional[str]] = mapped_column(String(20))
+    opt_date: Mapped[Optional[str]] = mapped_column(String(8))
+    check_sum: Mapped[Optional[str]] = mapped_column(String(100))
+    source: Mapped[Optional[str]] = mapped_column(String(50))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
 
 
 class ProcessedFiles(Base):
