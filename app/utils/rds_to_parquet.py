@@ -1,7 +1,6 @@
 """Convert .RDS files to .parquet for faster, splittable downstream processing."""
 import os
 import pyreadr
-import pandas as pd
 
 
 def rds_to_parquet(rds_path: str, parquet_path: str | None = None, compression: str = "zstd") -> str:

@@ -23,7 +23,7 @@ from tqdm import tqdm
 from app import create_app
 from app.dto.crop_data_resp import CropDataRecord
 from app.models.database_conn import MyDb
-from app.models.kvuno import CropData, ProcessedFiles
+from app.models.kvuno import CropData
 from app.repo.crop_data import CropDataRepo
 from app.repo.processed_files import ProcessedFilesRepo
 from app.utils import calculate_file_checksum
