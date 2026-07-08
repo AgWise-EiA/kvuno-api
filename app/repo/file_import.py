@@ -78,17 +78,20 @@ class FileImportRepo:
             self.logger.error(f"Failed to delete file import with ID {record.id}: {e}")
             raise
 
-    def upsert_offset(self, checksum: str, file_name: str, offset: int) -> None:
+    def upsert_offset(self, checksum: str, file_name: str, offset: int, original_filename: str = "") -> None:
         session = self._get_session()
         try:
             existing = session.query(FileImport).filter_by(check_sum=checksum).first()
             if existing:
                 existing.offset = offset
+                if original_filename:
+                    existing.original_filename = original_filename
             else:
                 session.add(FileImport(
                     check_sum=checksum,
                     file_name=file_name,
                     offset=offset,
+                    original_filename=original_filename or None,
                 ))
             session.commit()
             self.logger.info(f"Upserted offset {offset} for checksum {checksum}")

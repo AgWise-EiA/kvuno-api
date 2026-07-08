@@ -21,6 +21,7 @@ class FileImport(Base):
     file_name: Mapped[str] = mapped_column(String(120), nullable=False)
     processed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
     offset: Mapped[Optional[int]] = mapped_column(BigInteger)
+    original_filename: Mapped[Optional[str]] = mapped_column(String(255))
 
 
 class ImportConflict(Base):
