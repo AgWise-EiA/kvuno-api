@@ -1,28 +1,45 @@
-# Use an official Python runtime as a parent image
-FROM python:3.12-slim
+FROM node:24-alpine AS frontend
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Update the package list and install net-tools
-RUN apt-get update && apt-get install -y net-tools
+FROM python:3.14-slim AS builder
 
-RUN mkdir /app
+ENV PIP_NO_CACHE_DIR=1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 
-# Install Poetry
-RUN pip install poetry
+RUN pip install poetry==2 --no-cache-dir
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the pyproject-old.toml and poetry.lock files into the container
-COPY pyproject-old.toml poetry.lock /app/
+#COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml ./
 
-# Install project dependencies using Poetry
-RUN poetry install --no-dev
+RUN poetry install --no-root --without dev --no-ansi
 
-# Copy the rest of the application code into the container
-COPY . /app
+FROM python:3.14-slim AS runtime
 
-# Make port 80 available to the world outside this container
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    HOME=/app
+
+RUN groupadd -r app && useradd -r -g app -d /app -s /sbin/nologin app
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=frontend /app/node_modules /app/node_modules
+COPY --chown=app:app . .
+RUN chown app:app /app
+
+USER app
+
 EXPOSE 5000
 
-# Define the command to run your Flask app
-CMD ["gunicorn"  , "-b", "0.0.0.0", "wsgi:app"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "-w", "4", "--timeout", "60", "wsgi:app"]

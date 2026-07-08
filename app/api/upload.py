@@ -1,0 +1,97 @@
+"""File upload API for ingesting RDS/Parquet files into the database."""
+import os
+import uuid
+
+import pandas as pd
+import pyreadr
+from flask import request
+from flask_openapi3 import Tag, APIBlueprint
+from pydantic import BaseModel, Field
+
+from app.config import API_PREFIX, API_VERSION
+from app.dto.upload import UploadResponse
+
+__bp__ = "/data"
+url_prefix = API_PREFIX + API_VERSION + __bp__
+
+tag = Tag(name="ingestion", description="File upload and data ingestion")
+api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
+
+DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join("static", "data"))
+
+ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
+
+
+def _read_columns(path: str, ext: str):
+    if ext == '.parquet':
+        return pd.read_parquet(path, nrows=0).columns.tolist()
+    data = pyreadr.read_r(path)
+    return data[None].columns.tolist()
+
+
+class UploadBatchResponse(BaseModel):
+    files: list[UploadResponse] = Field(..., description="List of upload results")
+
+
+def _process_uploaded_file(f):
+    if not f.filename:
+        return {"error": "Empty filename"}, 400
+
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return {"error": f"Unsupported extension {ext}. Allowed: {ALLOWED_EXTENSIONS}"}, 400
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    dest = os.path.join(DATA_DIR, unique_name)
+    f.save(dest)
+
+    try:
+        columns = _read_columns(dest, ext)
+    except Exception as e:
+        return {"error": f"Failed to read file columns: {e}", "file": unique_name}, 400
+
+    if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
+        from app.services.housekeeper import process_file_async
+        process_file_async(file_path=dest)
+
+    return UploadResponse(
+        message="File accepted for processing" if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true'
+                else "File saved. Set HOUSEKEEPING_ENABLED=true and start a Celery worker for background processing.",
+        file=unique_name,
+        columns=columns,
+    )
+
+
+@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}})
+def upload_file():
+    """Upload one or more RDS or Parquet files for processing.
+
+    Send a single file via the ``file`` field, or multiple files via the
+    ``files`` field. Each file is saved to the housekeeping data directory
+    and processed in the background.
+    """
+    files = request.files.getlist('files')
+    if not files:
+        single = request.files.get('file')
+        if single:
+            files = [single]
+
+    if not files:
+        return {"error": "No file provided. Use 'file' (single) or 'files' (multiple)."}, 400
+
+    results = []
+    errors = []
+    for f in files:
+        result = _process_uploaded_file(f)
+        if isinstance(result, tuple):
+            errors.append({"file": f.filename, "error": result[0]["error"]})
+        else:
+            results.append(result)
+
+    status_code = 202 if results else 400
+    body = UploadBatchResponse(files=results).model_dump()
+    if errors:
+        body["errors"] = errors
+    return body, status_code

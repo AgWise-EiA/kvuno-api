@@ -1,35 +1,49 @@
-# Use an official Python runtime as a parent image
-FROM python:3.12-slim
+FROM node:24-alpine AS frontend
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Update the package list and install net-tools
-RUN apt-get update && apt-get install -y net-tools curl
+FROM python:3.14-slim AS builder
 
-RUN mkdir /app
+ENV PIP_NO_CACHE_DIR=1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 
-# Install Poetry
-RUN pip install poetry
+RUN pip install poetry==2 --no-cache-dir
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the pyproject-old.toml and poetry.lock files into the container
-#COPY pyproject.toml poetry.lock /app/
-COPY pyproject.toml /app/
+#COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml ./
 
-# Install project dependencies using Poetry
-RUN poetry config virtualenvs.create false
+RUN poetry install --no-root --no-ansi
 
-RUN poetry install --no-root
+FROM python:3.14-slim AS runtime
 
-#RUN pip install gunicorn
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    HOME=/app
 
-# Copy the rest of the application code into the container
-COPY . /app
+# Match these to your host user (id -u / id -g) at build time so bind-mounted
+# files keep correct ownership. Defaults below match the common single-user
+# Linux/macOS UID/GID of 1000.
+ARG UID=1000
+ARG GID=1000
 
+RUN groupadd -g ${GID} app && \
+    useradd -u ${UID} -g app -d /app -s /bin/bash app
 
-# Make port 80 available to the world outside this container
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=frontend /app/node_modules /app/node_modules
+COPY --chown=app:app . .
+RUN chown app:app /app
+
+USER app
+
 EXPOSE 5000
 
-# Define the command to run your Flask app
-#CMD ["gunicorn", "-c", "app/gunicorn_config.py", "wsgi:app"]
-CMD [ "python3", "run.py"]
+CMD ["python3", "run.py"]

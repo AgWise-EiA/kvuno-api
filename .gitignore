@@ -8,3 +8,7 @@ __pycache__/
 data-old
 kvuno.db
 kvuno.db.journal
+/data/
+node_modules/
+.pnpm-store/
+

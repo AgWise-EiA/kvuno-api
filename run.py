@@ -28,12 +28,15 @@ from app import create_app
 load_dotenv()
 
 app = create_app()
-app.app_context().push()  # Push the application context for use in the script
+app.app_context().push()
 
-if __name__ == '__main__':
-    # Use environment variables
-    debug = os.getenv('FLASK_DEBUG') == '1'
+
+def main():
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     host = os.getenv('SERVER_HOST', default='0.0.0.0')
     port = os.getenv('SERVER_PORT', default=5000)
-    app.run(host=host, port=port, debug=debug)
 
+    app.run(host=host, port=port, debug=debug, use_reloader=True)
+
+if __name__ == '__main__':
+    main()
