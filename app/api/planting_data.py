@@ -29,7 +29,7 @@ def get_data(query: PlantingDataFilter):
     try:
         paginated_data = repo.get_paginated_data(query, page, per_page)
 
-        data = [PlantingRecommendationRecord(
+        records = [PlantingRecommendationRecord(
             id=item.id,
             country=item.country,
             province=item.province,
@@ -41,15 +41,15 @@ def get_data(query: PlantingDataFilter):
             planting_option=item.planting_option,
             check_sum=item.check_sum,
             coordinates=str(item.coordinates),
-        ).__dict__ for item in paginated_data.items]
+        ) for item in paginated_data.items]
 
-        return {
-            'data': data,
-            'total': paginated_data.total,
-            'pages': paginated_data.pages,
-            'current_page': paginated_data.page,
-            'per_page': paginated_data.per_page,
-        }, 200
+        return PlantingRecommendationResponse(
+            data=records,
+            total=paginated_data.total,
+            pages=paginated_data.pages,
+            current_page=paginated_data.page,
+            per_page=paginated_data.per_page,
+        ).model_dump(), 200
 
     except Exception as e:
         logger.error(f"Error retrieving planting recommendation data: {e}")

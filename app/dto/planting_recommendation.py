@@ -1,6 +1,8 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import Field, BaseModel
+
+from app.dto.pagination import PaginatedResponse
 
 
 class Unauthorized(BaseModel):
@@ -8,8 +10,7 @@ class Unauthorized(BaseModel):
     message: str = Field("Unauthorized!", description="Exception Information", examples=["Unauthorized!"])
 
 
-class PlantingRecommendationRecord(BaseModel):
-    id: Optional[int] = Field(default=None, description="Record ID", examples=[1])
+class PlantingRecommendationBase(BaseModel):
     lat: Optional[float] = Field(default=None, description="Latitude", examples=[-1.29])
     lon: Optional[float] = Field(default=None, description="Longitude", examples=[36.82])
     country: Optional[str] = Field(default=None, description="Country", examples=["Kenya"])
@@ -22,9 +23,13 @@ class PlantingRecommendationRecord(BaseModel):
     coordinates: Optional[str] = Field(default=None, description="WKT coordinate string", examples=["POINT(36.82 -1.29)"])
 
 
-class PlantingRecommendationResponse(BaseModel):
-    data: List[PlantingRecommendationRecord] = Field(default=[], description="List of planting recommendation records")
-    total: int = Field(..., description="Total number of records", examples=[150])
-    pages: int = Field(..., description="Total number of pages", examples=[3])
-    current_page: int = Field(..., description="Current page number", examples=[1])
-    per_page: int = Field(..., description="Records per page", examples=[50])
+class PlantingRecommendationCreate(PlantingRecommendationBase):
+    pass
+
+
+class PlantingRecommendationRecord(PlantingRecommendationBase):
+    id: int = Field(..., description="Record ID", examples=[1])
+
+
+class PlantingRecommendationResponse(PaginatedResponse[PlantingRecommendationRecord]):
+    pass
