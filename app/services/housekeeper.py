@@ -15,14 +15,14 @@ import pandas as pd
 import pyreadr
 from dotenv import load_dotenv
 from geoalchemy2 import WKTElement
-from sqlalchemy import text as db_text
+from sqlalchemy import insert, text as db_text
 from sqlalchemy.exc import SQLAlchemyError
 from tqdm import tqdm
 
 from app import create_app
 from app.dto.crop_data_resp import CropDataRecord
 from app.models.database_conn import MyDb
-from app.models.kvuno import CropData
+from app.models.kvuno import CropData, CropDataConflict
 from app.repo.crop_data import CropDataRepo
 from app.repo.processed_files import ProcessedFilesRepo
 from app.utils import calculate_file_checksum
@@ -223,6 +223,40 @@ def download_remote_files(data_folder: str) -> list[str]:
     return downloaded
 
 
+# ── Conflict logging ───────────────────────────────────────────
+
+def _log_batch_conflicts(session, mappings):
+    from sqlalchemy import tuple_
+    unique_cols = ['country', 'province', 'lon', 'lat', 'variety', 'season_type', 'opt_date']
+    key_tuples = [
+        tuple(m.get(c) for c in unique_cols)
+        for m in mappings
+    ]
+    existing = session.query(CropData).filter(
+        tuple_(*[getattr(CropData, c) for c in unique_cols]).in_(key_tuples)
+    ).all()
+    existing_keys = {
+        tuple(getattr(e, c) for c in unique_cols): e.check_sum
+        for e in existing
+    }
+    for m in mappings:
+        key = tuple(m.get(c) for c in unique_cols)
+        if key in existing_keys:
+            conflict = CropDataConflict(
+                record_data=m,
+                country=m.get('country'),
+                province=m.get('province'),
+                lon=m.get('lon'),
+                lat=m.get('lat'),
+                variety=m.get('variety'),
+                season_type=m.get('season_type'),
+                opt_date=m.get('opt_date'),
+                check_sum=existing_keys[key],
+                source='housekeeper',
+            )
+            session.add(conflict)
+
+
 # ── File processing ────────────────────────────────────────────
 
 def process_file(
@@ -349,7 +383,10 @@ def process_file(
                                         }
                                         for r in rows
                                     ]
-                                    session.bulk_insert_mappings(CropData, mappings)
+                                    stmt = insert(CropData).values(mappings).on_conflict_do_nothing()
+                                    result = session.execute(stmt)
+                                    if result.rowcount < len(mappings):
+                                        _log_batch_conflicts(session, mappings)
                             retry_db(lambda: _flush_batch(sub), attempts=2)
                             completed_batches += 1
                             batches_since_checkpoint += 1
