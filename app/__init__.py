@@ -83,7 +83,7 @@ def create_app():
 
     # Configure the database URI
     app.config['SQLALCHEMY_DATABASE_URI'] = build_db_url()
-    app.config['SQLALCHEMY_ECHO'] = os.getenv('DEBUG_DB') == '1'
+    app.config['SQLALCHEMY_ECHO'] = os.getenv('DEBUG_DB', 'false').lower() == 'true'
     app.json.sort_keys = os.getenv('SORT_JSON') == '1'
 
     # Initialize the database
