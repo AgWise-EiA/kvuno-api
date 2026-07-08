@@ -29,6 +29,8 @@ services:
       CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES:-10}
       CELERY_TASK_RETRY_DELAY: ${CELERY_TASK_RETRY_DELAY:-60}
       REMOTE_RDS_URLS: ${REMOTE_RDS_URLS:-}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-20}
+      CLEANUP_AGE: ${CLEANUP_AGE:-1d}
 
     volumes:
       - ${DATA_DIR:-./data}:/app/static/data
@@ -68,6 +70,8 @@ services:
       CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES:-10}
       CELERY_TASK_RETRY_DELAY: ${CELERY_TASK_RETRY_DELAY:-60}
       REMOTE_RDS_URLS: ${REMOTE_RDS_URLS:-}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-20}
+      CLEANUP_AGE: ${CLEANUP_AGE:-1d}
 
     volumes:
       - ${DATA_DIR:-./data}:/app/static/data
