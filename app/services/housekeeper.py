@@ -15,12 +15,13 @@ import pandas as pd
 import pyreadr
 from dotenv import load_dotenv
 from geoalchemy2 import WKTElement
-from sqlalchemy import insert, text as db_text
+from sqlalchemy import text as db_text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from tqdm import tqdm
 
 from app import create_app
-from app.dto.planting_recommendation import PlantingRecommendationRecord
+from app.dto.planting_recommendation import PlantingRecommendationCreate
 from app.models.database_conn import MyDb
 from app.models.kvuno import PlantingRecommendation, ImportConflict
 from app.repo.planting_recommendation import PlantingRecommendationRepo
@@ -357,13 +358,13 @@ def process_file(
 
                     batch = []
                     for rd in records_data:
-                        kwargs = {'id': None, 'check_sum': checksum}
+                        kwargs = {'check_sum': checksum}
                         for rds_col, target_attr in column_map.items():
                             value = rd.get(rds_col)
                             if target_attr == 'planting_option' and value is not None:
                                 value = int(value)
                             kwargs[target_attr] = value
-                        batch.append(PlantingRecommendationRecord(**kwargs))
+                        batch.append(PlantingRecommendationCreate(**kwargs))
 
                     for i in range(0, len(batch), batch_size):
                         if shutdown_requested:
@@ -376,7 +377,7 @@ def process_file(
                                 with session.begin_nested():
                                     mappings = [
                                         {
-                                            **r.__dict__,
+                                            **r.model_dump(),
                                             'coordinates': WKTElement(f"POINT({r.lon} {r.lat})", srid=4326)
                                             if r.lat and r.lon
                                             else None
