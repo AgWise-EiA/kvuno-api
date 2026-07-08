@@ -29,6 +29,8 @@ services:
       - ${DATA_DIR:-./data}:/app/static/data
     ports:
       - "5000:5000"
+    depends_on:
+      - db
 
   prod:
     container_name: kvuno-prod
@@ -60,10 +62,13 @@ services:
       - ${DATA_DIR:-./data}:/app/static/data
     ports:
       - "5001:5000"
+    depends_on:
+      - db
   db:
     container_name: db
     hostname: db
-    image: postgres:17-alpine
+#    image: postgres:17-alpine
+    image: postgis/postgis:17-3.5
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
