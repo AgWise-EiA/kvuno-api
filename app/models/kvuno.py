@@ -1,10 +1,9 @@
-import datetime
 from typing import Any, Optional
+import datetime
 
 from geoalchemy2.types import Geometry
-from sqlalchemy import BigInteger, DateTime, Float, Index, Integer, PrimaryKeyConstraint, String, UniqueConstraint, text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, PrimaryKeyConstraint, REAL, String, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
 
 class Base(DeclarativeBase):
     pass
@@ -15,9 +14,9 @@ class CropData(Base):
     __table_args__ = (
         PrimaryKeyConstraint('id', name='crop_data_pkey'),
         Index('idx_check_sum', 'check_sum'),
-        Index('idx_coordinates', 'coordinates'),
+        Index('idx_coordinates', 'coordinates', postgresql_using='gist'),
         Index('idx_country', 'country'),
-        Index('idx_crop_data_coordinates', 'coordinates'),
+        Index('idx_crop_data_coordinates', 'coordinates', postgresql_using='gist'),
         Index('idx_lat', 'lat'),
         Index('idx_lon', 'lon'),
         Index('idx_opt_date', 'opt_date'),
@@ -27,13 +26,13 @@ class CropData(Base):
         Index('idx_variety', 'variety')
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    check_sum: Mapped[str] = mapped_column(String(100))
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    coordinates: Mapped[Any] = mapped_column(Geometry('POINT', 4326, 2, from_text='ST_GeomFromEWKT', name='geometry', nullable=False), nullable=False)
+    check_sum: Mapped[str] = mapped_column(String(100), nullable=False)
     country: Mapped[Optional[str]] = mapped_column(String(20))
     province: Mapped[Optional[str]] = mapped_column(String(20))
-    coordinates: Mapped[Optional[Any]] = mapped_column(Geometry('POINT', 4326))
-    lon: Mapped[Optional[float]] = mapped_column(Float)
-    lat: Mapped[Optional[float]] = mapped_column(Float)
+    lon: Mapped[Optional[float]] = mapped_column(REAL)
+    lat: Mapped[Optional[float]] = mapped_column(REAL)
     variety: Mapped[Optional[str]] = mapped_column(String(20))
     season_type: Mapped[Optional[str]] = mapped_column(String(20))
     opt_date: Mapped[Optional[str]] = mapped_column(String(8))
@@ -49,7 +48,8 @@ class ProcessedFiles(Base):
         UniqueConstraint('check_sum', name='processed_files_check_sum_key')
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    check_sum: Mapped[str] = mapped_column(String(100))
-    file_name: Mapped[str] = mapped_column(String(120))
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    check_sum: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(120), nullable=False)
     processed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
+    offset: Mapped[Optional[int]] = mapped_column(BigInteger)

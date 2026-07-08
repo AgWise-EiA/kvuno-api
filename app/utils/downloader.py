@@ -10,9 +10,8 @@ from typing import Optional
 import requests
 
 from app.utils.logging import SharedLogger
-import logging
 
-_shared_logger = SharedLogger(level=logging.DEBUG)
+_shared_logger = SharedLogger()
 _logger = _shared_logger.get_logger()
 
 DEFAULT_DATA_DIR = os.path.join("static", "data")
@@ -134,7 +133,7 @@ def download_and_process(url: str, filename: Optional[str] = None,
     filepath = downloader.download(url, filename=filename)
 
     if process:
-        from housekeeping import process_file
+        from app.services.housekeeper import process_file
         process_file(filepath, batch_size=batch_size, chunk_size=chunk_size)
 
     return filepath

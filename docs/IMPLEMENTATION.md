@@ -6,34 +6,34 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 ## High Priority
 
-- [ ] **Batch-level savepoints** — Wrap each DB batch insert in a SQLAlchemy savepoint (nested transaction) so partial commits are rolled back if a batch fails mid-file. The file is only recorded in `processed_files` after all batches succeed.
+- [x] **Batch-level savepoints** — Each batch insert is wrapped in `session.begin_nested()` (nested transaction). Failed batches are skipped and counted; the file is still recorded in `processed_files` with a warning.
 
-- [ ] **Retry with exponential backoff** — Wrap DB operations (batch insert, checksum lookup) with a retry decorator (3 attempts, 1s/2s/4s backoff) to handle transient connection drops or deadlocks.
+- [x] **Retry with exponential backoff** — Added `retry_db()` helper (3 attempts, 1s/2s/4s backoff). Wraps checksum lookup and each savepoint batch insert.
 
-- [ ] **Replace `iterrows` with vectorized batch building** — The current `for index, row in chunk.iterrows()` loop is ~100x slower than building batches with pandas vectorized operations. Use `df.to_dict('records')` with a column transform step instead.
+- [x] **Replace `iterrows` with vectorized batch building** — Replaced the `iterrows()` loop with `chunk.dropna(subset=['XY']).replace({pd.NA: None}).to_dict('records')` for ~100x speedup.
 
-- [ ] **Graceful shutdown** — Catch `KeyboardInterrupt` and `SIGTERM` in `process_file()` to flush the current in-progress batch before exiting, preventing data loss during manual interruption.
+- [x] **Graceful shutdown** — Signal handlers set a `shutdown_requested` flag checked at each batch boundary. On first signal: completes current batch, commits, and exits (does NOT mark file as processed). On second signal: raises `KeyboardInterrupt`/`SystemExit` for force-quit. SIGTERM protected against Windows `AttributeError`.
 
 ---
 
 ## Medium Priority
 
-- [ ] **Per-file error aggregation in concurrent executor** — Replace `executor.map()` with `concurrent.futures.as_completed()` so per-file exceptions are collected and summarized, rather than silently swallowed. Log a final summary of succeeded/failed files.
+- [x] **Per-file error aggregation in concurrent executor** — Replaced `executor.map()` (aborts all on first failure) with `executor.submit()` + `as_completed()`. Each future is individually caught; per-file errors are logged and aggregated for final summary.
 
-- [ ] **Resumable processing (offset tracking)** — Add an `offset` column to `processed_files` (or a new `processing_state` table) to track the last committed row per file. On restart, skip already-inserted rows instead of re-processing from the beginning.
+- [x] **Resumable processing (offset tracking)** — Added `offset` column to `processed_files` table + repo method `upsert_offset()`. `process_file()` checkpoints every `checkpoint_interval` batches (default 50), committing the outer transaction and persisting offset via a separate session. On restart, skips rows before the stored offset. Graceful shutdown persists the last committed row offset so the next run resumes from there.
 
-- [ ] **Pre-flight DB health check** — At the start of `load_rds_to_db()`, run a `SELECT 1` to confirm the database is reachable before spending time downloading or processing files.
+- [x] **Pre-flight DB health check** — `db_health_check()` runs `SELECT 1` at the start of `load_rds_to_db()` before downloading or processing any files. Raises immediately if the database is unreachable.
 
-- [ ] **Configurable column mapping** — Accept a column-name mapping (via env var `RDS_COLUMN_MAP` as JSON, e.g. `{"XY": "coordinates", "Variety": "variety"}`) so the script adapts to different RDS schemas without hardcoded column names.
+- [x] **Configurable column mapping** — Added `load_column_map()` reading `RDS_COLUMN_MAP` env var (JSON). Defaults match the original hardcoded mapping. Record builder uses the map instead of hardcoded `.get()` calls.
 
 ---
 
 ## Low Priority
 
-- [ ] **Streaming RDS reader** — Investigate whether `pyreadr` supports chunked reads or evaluate alternative RDS parsers that stream rows instead of loading the full dataset into memory.
+- [x] **Streaming RDS reader (research)** — Investigated: RDS is a serialized R object format; both `pyreadr` and `rds2py` deserialize in one pass. No streaming parser exists. Added `rds_to_parquet.py` utility to convert RDS → Parquet (splittable, columnar) for large files. Update `housekeeping.py` to prefer `.parquet` when available.
 
-- [ ] **File watcher mode** — Add a `--watch` flag that monitors `static/data/` for new `.RDS` files and processes them on arrival, keeping the database in sync without manual re-runs.
+- [x] **File watcher mode** — Added `--watch` CLI flag using `watchdog`. Monitors the data directory for new `.RDS`/`.parquet` files and processes them on arrival. Install with `pip install kvuno-api[watch]`.
 
-- [ ] **Telemetry / progress tracking** — Emit structured JSON log lines at each phase (download start/end, batch committed, file complete) for ingestion into a monitoring pipeline.
+- [x] **Telemetry / progress tracking** — Added `emit_event()` helper writing structured JSON lines to stderr. Fires at: `housekeeping.start/end`, `file.download_start/end`, `file.processing_start/end`.
 
-- [ ] **Dry-run mode** — Add a `--dry-run` flag that scans and reports what would be processed (new files, already-processed files, row counts) without touching the database.
+- [x] **Dry-run mode** — Added `--dry-run` CLI flag. Each file reports its status (already processed, partially processed with offset, or new) and exits without modifying the database.

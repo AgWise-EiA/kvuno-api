@@ -1,5 +1,3 @@
-import logging
-
 from flask import request, jsonify
 from flask_openapi3 import Tag, APIBlueprint
 
@@ -18,13 +16,13 @@ tag = Tag(name="kvuno", description="Data serving API")
 
 api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
 
-shared_logger = SharedLogger(level=logging.DEBUG)
+shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 planting_data_repo = CropDataRepo()
 
 
-@api.get('/',
+@api.get('',
          responses={200: CropRecordResponse, 401: Unauthorized})
 def get_data(query: PlantingDataFilter):
     page = int(request.args.get('page', default=1, type=int))

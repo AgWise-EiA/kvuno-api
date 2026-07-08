@@ -162,19 +162,53 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full details on Compose configu
 
 ## Usage
 
-### Ingesting RDS Data
+### Housekeeping Script
 
-Place `.RDS` files in `static/data/` and run:
+The `housekeeping.py` script ingests `.RDS` and `.parquet` files into the database with checkpoint-based resumability, deduplication, and graceful shutdown.
 
 ```bash
+# Process all files in the default directory (static/data/)
 python housekeeping.py
+
+# Process files in a custom directory
+python housekeeping.py /path/to/data
+
+# Dry-run — scan files without modifying the database
+python housekeeping.py --dry-run
+
+# Watch mode — process files as they arrive
+python housekeeping.py --watch
+
+# Tune batch sizes and checkpoint frequency
+python housekeeping.py --batch-size 2000 --chunk-size 10000 --checkpoint-interval 50
+
+# Combine flags
+python housekeeping.py --watch --dry-run /path/to/data
 ```
 
-This will:
-1. Compute a SHA-256 checksum for each file
-2. Skip files that have already been processed
-3. Parse RDS data with `pyreadr`
-4. Batch-insert records into the database
+What happens during a run:
+1. **Health check** — `SELECT 1` confirms the database is reachable
+2. **Remote download** — Downloads files from `REMOTE_RDS_URLS` (if configured)
+3. **Deduplication** — SHA-256 checksum lookup in `processed_files` table; fully processed files are skipped
+4. **Resumable processing** — Files with a stored `offset` resume from that row; incremental checkpoints commit every `checkpoint_interval` batches
+5. **Batch insert** — Records are inserted in savepoint-protected batches; individual batch failures are logged and skipped
+6. **Graceful shutdown** — `Ctrl+C` (or `SIGTERM`) commits completed batches and persists the offset for later resumption; a second `Ctrl+C` force-quits immediately
+7. **Telemetry** — Structured JSON events (`housekeeping.start/end`, `file.download_start/end`, `file.processing_start/end`) are written to stderr for monitoring ingestion
+
+Remote files are configured via environment variables:
+
+| Variable | Description |
+|---|---|
+| `REMOTE_RDS_URLS` | Semicolon-delimited URLs of remote `.RDS` files to download |
+| `REMOTE_RDS_TOKEN` | Bearer token for authenticated downloads |
+| `REMOTE_RDS_COOKIES` | Cookie header (e.g. `session=abc; token=xyz`) |
+| `REMOTE_RDS_HEADERS` | Custom headers as `key: value; key2: value2` |
+
+Convert large `.RDS` files to `.parquet` for faster processing:
+
+```bash
+python -c "from app.utils.rds_to_parquet import batch_convert; batch_convert('static/data/')"
+```
 
 ### API Endpoints
 

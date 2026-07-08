@@ -1,11 +1,10 @@
-import logging
 from typing import Optional, List, Type
 
 from app.models.database_conn import MyDb
 from app.models.kvuno import ProcessedFiles
 from app.utils.logging import SharedLogger
 
-shared_logger = SharedLogger(level=logging.DEBUG)
+shared_logger = SharedLogger()
 
 
 class ProcessedFilesRepo:
@@ -78,6 +77,26 @@ class ProcessedFilesRepo:
         except Exception as e:
             session.rollback()
             self.logger.error(f"Failed to delete processed file with ID {processed_file.id}: {e}")
+            raise
+
+    def upsert_offset(self, checksum: str, file_name: str, offset: int) -> None:
+        """Create or update the offset for a given checksum using its own transaction."""
+        session = self._get_session()
+        try:
+            existing = session.query(ProcessedFiles).filter_by(check_sum=checksum).first()
+            if existing:
+                existing.offset = offset
+            else:
+                session.add(ProcessedFiles(
+                    check_sum=checksum,
+                    file_name=file_name,
+                    offset=offset,
+                ))
+            session.commit()
+            self.logger.info(f"Upserted offset {offset} for checksum {checksum}")
+        except Exception as e:
+            session.rollback()
+            self.logger.error(f"Failed to upsert offset for checksum {checksum}: {e}")
             raise
 
     def insert_processed_files(self, processed_files: List[ProcessedFiles]) -> None:
