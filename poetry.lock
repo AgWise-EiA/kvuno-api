@@ -1659,6 +1659,27 @@ files = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.68.4"
+description = "Fast, Extensible Progress Meter"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "tqdm-4.68.4-py3-none-any.whl", hash = "sha256:5168118b2368f48c561afda8020fd79195b1bdb0bdf8086b88442c267a315dc2"},
+    {file = "tqdm-4.68.4.tar.gz", hash = "sha256:19829c9673638f2a0b8617da4cdcb927e831cd88bcfcb6e78d42a4d1af131520"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+discord = ["envwrap", "requests"]
+notebook = ["ipywidgets (>=6)"]
+slack = ["envwrap", "slack-sdk"]
+telegram = ["envwrap", "requests"]
+
+[[package]]
 name = "typeguard"
 version = "4.5.2"
 description = "Run-time type checker for Python"
@@ -1751,10 +1772,9 @@ testing = ["coverage (>=7.6.0)", "pytest", "pytest-cov"]
 name = "watchdog"
 version = "6.0.0"
 description = "Filesystem events monitoring"
-optional = true
+optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"watch\""
 files = [
     {file = "watchdog-6.0.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:d1cdb490583ebd691c012b3d6dae011000fe42edb7a82ece80965b42abd61f26"},
     {file = "watchdog-6.0.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:bc64ab3bdb6a04d69d4023b29422170b74681784ffb9463ed4870cf2f3e66112"},
@@ -1934,4 +1954,4 @@ watch = ["watchdog"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "c15d1ea93147413506bba010c98babaec56b2b22954d79130ff0fcb7ac85819f"
+content-hash = "b39f334b3367677fc5ad4103f011b787b673d5d4da4a39586a2e236d16d8dec6"
