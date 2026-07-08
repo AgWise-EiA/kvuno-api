@@ -98,7 +98,7 @@ def create_app():
     register_app_routes(app)
 
     # Start background processing of any unprocessed files
-    if os.getenv('HOUSEKEEPING_ENABLED', 'true').lower() == 'true':
+    if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
         with app.app_context():
             from app.services.housekeeper import process_pending
             process_pending(app)
