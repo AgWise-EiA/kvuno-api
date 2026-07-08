@@ -9,8 +9,8 @@ services:
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
       FLASK_APP: ${FLASK_APP:-development}
-      FLASK_DEBUG: ${FLASK_DEBUG:-1}
-      DEBUG_DB: ${DEBUG_DB:-0}
+      FLASK_DEBUG: ${FLASK_DEBUG:-false}
+      DEBUG_DB: ${DEBUG_DB:-false}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DB_DRIVER: ${DB_DRIVER:-postgresql}
       DB_HOST: ${DB_HOST:-db}
@@ -43,8 +43,8 @@ services:
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
       FLASK_APP: ${FLASK_APP:-development}
-      FLASK_DEBUG: ${FLASK_DEBUG:-1}
-      DEBUG_DB: ${DEBUG_DB:-0}
+      FLASK_DEBUG: ${FLASK_DEBUG:-false}
+      DEBUG_DB: ${DEBUG_DB:-false}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DB_DRIVER: ${DB_DRIVER:-postgresql}
       DB_HOST: ${DB_HOST:-db}
