@@ -230,7 +230,7 @@ def register_app_routes(app):
                     with open(p, 'rb') as inp:
                         out.write(inp.read())
         except FileNotFoundError:
-            return jsonify(error=f"Missing chunk — upload may have failed"), 400
+            return jsonify(error="Missing chunk — upload may have failed"), 400
 
         # clean up chunk dir
         import shutil
