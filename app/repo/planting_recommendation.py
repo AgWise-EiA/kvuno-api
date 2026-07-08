@@ -2,11 +2,12 @@ from typing import Optional, List, Type
 
 from flask_sqlalchemy.pagination import QueryPagination
 from geoalchemy2 import WKTElement
-from sqlalchemy import func, insert
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query
 
-from app.dto.planting_recommendation import PlantingRecommendationRecord
+from app.dto.planting_recommendation import PlantingRecommendationCreate
 from app.dto.data_filters import PlantingDataFilter
 from app.models.database_conn import MyDb
 from app.models.kvuno import PlantingRecommendation, ImportConflict
@@ -158,7 +159,7 @@ class PlantingRecommendationRepo:
                 session.add(conflict)
         session.flush()
 
-    def batch_insert(self, records: List[PlantingRecommendationRecord]) -> int:
+    def batch_insert(self, records: List[PlantingRecommendationCreate]) -> int:
         if not records:
             self.logger.warning("No records to insert.")
             return 0
@@ -167,7 +168,7 @@ class PlantingRecommendationRepo:
         try:
             mappings = [
                 {
-                    **record.__dict__,
+                    **record.model_dump(),
                     'coordinates': WKTElement(f"POINT({record.lon} {record.lat})", srid=4326)
                     if record.lat and record.lon
                     else None
