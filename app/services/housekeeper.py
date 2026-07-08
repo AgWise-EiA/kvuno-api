@@ -20,11 +20,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from tqdm import tqdm
 
 from app import create_app
-from app.dto.crop_data_resp import CropDataRecord
+from app.dto.planting_recommendation import PlantingRecommendationRecord
 from app.models.database_conn import MyDb
-from app.models.kvuno import CropData, CropDataConflict
-from app.repo.crop_data import CropDataRepo
-from app.repo.processed_files import ProcessedFilesRepo
+from app.models.kvuno import PlantingRecommendation, ImportConflict
+from app.repo.planting_recommendation import PlantingRecommendationRepo
+from app.repo.file_import import FileImportRepo
 from app.utils import calculate_file_checksum
 from app.utils.downloader import RDSDownloader
 from app.utils.logging import SharedLogger
@@ -71,8 +71,8 @@ def housekeeping_settings() -> dict:
 
 # ── Repos ──────────────────────────────────────────────────────
 
-processed_files_repo = ProcessedFilesRepo()
-crop_data_repo = CropDataRepo()
+file_import_repo = FileImportRepo()
+planting_recommendation_repo = PlantingRecommendationRepo()
 
 
 # ── Graceful shutdown ──────────────────────────────────────────
@@ -232,8 +232,8 @@ def _log_batch_conflicts(session, mappings):
         tuple(m.get(c) for c in unique_cols)
         for m in mappings
     ]
-    existing = session.query(CropData).filter(
-        tuple_(*[getattr(CropData, c) for c in unique_cols]).in_(key_tuples)
+    existing = session.query(PlantingRecommendation).filter(
+        tuple_(*[getattr(PlantingRecommendation, c) for c in unique_cols]).in_(key_tuples)
     ).all()
     existing_keys = {
         tuple(getattr(e, c) for c in unique_cols): e.check_sum
@@ -242,7 +242,7 @@ def _log_batch_conflicts(session, mappings):
     for m in mappings:
         key = tuple(m.get(c) for c in unique_cols)
         if key in existing_keys:
-            conflict = CropDataConflict(
+            conflict = ImportConflict(
                 record_data=m,
                 country=m.get('country'),
                 province=m.get('province'),
@@ -284,7 +284,7 @@ def process_file(
             checksum = calculate_file_checksum(file_path, logger)
 
             if dry_run:
-                existing = processed_files_repo.get_processed_file_by_checksum(checksum)
+                existing = file_import_repo.get_by_checksum(checksum)
                 if existing and existing.offset is None:
                     logger.info(f"[DRY RUN] {file_name} — already processed, would skip")
                 elif existing and existing.offset is not None:
@@ -293,7 +293,7 @@ def process_file(
                     logger.info(f"[DRY RUN] {file_name} — would process {os.path.getsize(file_path)} bytes")
                 return
 
-            existing = retry_db(lambda: processed_files_repo.get_processed_file_by_checksum(checksum))
+            existing = retry_db(lambda: file_import_repo.get_by_checksum(checksum))
             resume_offset = 0
             if existing and existing.offset is None:
                 logger.warning(f"File {file_name} is already fully processed. Checksum: {checksum}")
@@ -363,7 +363,7 @@ def process_file(
                             if target_attr == 'planting_option' and value is not None:
                                 value = int(value)
                             kwargs[target_attr] = value
-                        batch.append(CropDataRecord(**kwargs))
+                        batch.append(PlantingRecommendationRecord(**kwargs))
 
                     for i in range(0, len(batch), batch_size):
                         if shutdown_requested:
@@ -383,7 +383,7 @@ def process_file(
                                         }
                                         for r in rows
                                     ]
-                                    stmt = insert(CropData).values(mappings).on_conflict_do_nothing()
+                                    stmt = insert(PlantingRecommendation).values(mappings).on_conflict_do_nothing()
                                     result = session.execute(stmt)
                                     if result.rowcount < len(mappings):
                                         _log_batch_conflicts(session, mappings)
@@ -399,7 +399,7 @@ def process_file(
 
                     if batches_since_checkpoint >= checkpoint_interval and not shutdown_requested:
                         session.commit()
-                        processed_files_repo.upsert_offset(checksum, file_name, chunk_end)
+                        file_import_repo.upsert_offset(checksum, file_name, chunk_end)
                         batches_since_checkpoint = 0
                         logger.debug(f"Checkpoint committed at row {chunk_end}")
                     if shutdown_requested:
@@ -421,13 +421,13 @@ def process_file(
                        failed_batches=failed_batches, shutdown=shutdown_requested)
 
             if shutdown_requested:
-                processed_files_repo.upsert_offset(checksum, file_name, last_committed_row)
+                file_import_repo.upsert_offset(checksum, file_name, last_committed_row)
                 logger.warning(
                     f"Graceful shutdown — committed {completed_batches} batches from {file_name}, "
                     f"offset {last_committed_row} persisted"
                 )
             else:
-                processed_files_repo.upsert_offset(checksum, file_name, num_rows)
+                file_import_repo.upsert_offset(checksum, file_name, num_rows)
                 logger.info(f"File {file_name} fully processed and recorded")
 
             if failed_batches:
