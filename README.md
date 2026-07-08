@@ -176,8 +176,7 @@ python housekeeping.py /path/to/data
 # Dry-run — scan files without modifying the database
 python housekeeping.py --dry-run
 
-# Watch mode — process files as they arrive (requires watchdog)
-pip install kvuno-api[watch]
+# Watch mode — process files as they arrive
 python housekeeping.py --watch
 
 # Tune batch sizes and checkpoint frequency
