@@ -6,7 +6,7 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 ## High Priority
 
-- [x] **Batch-level savepoints** — Each batch insert is wrapped in `session.begin_nested()` (nested transaction). Failed batches are skipped and counted; the file is still recorded in `processed_files` with a warning.
+- [x] **Batch-level savepoints** — Each batch insert is wrapped in `session.begin_nested()` (nested transaction). Failed batches are skipped and counted; the file is still recorded in `file_imports` with a warning.
 
 - [x] **Retry with exponential backoff** — Added `retry_db()` helper (3 attempts, 1s/2s/4s backoff). Wraps checksum lookup and each savepoint batch insert.
 
@@ -20,7 +20,7 @@ Checklist of improvements to harden `housekeeping.py` against failures, improve 
 
 - [x] **Per-file error aggregation in concurrent executor** — Replaced `executor.map()` (aborts all on first failure) with `executor.submit()` + `as_completed()`. Each future is individually caught; per-file errors are logged and aggregated for final summary.
 
-- [x] **Resumable processing (offset tracking)** — Added `offset` column to `processed_files` table + repo method `upsert_offset()`. `process_file()` checkpoints every `checkpoint_interval` batches (default 50), committing the outer transaction and persisting offset via a separate session. On restart, skips rows before the stored offset. Graceful shutdown persists the last committed row offset so the next run resumes from there.
+- [x] **Resumable processing (offset tracking)** — Added `offset` column to `file_imports` table + repo method `upsert_offset()`. `process_file()` checkpoints every `checkpoint_interval` batches (default 50), committing the outer transaction and persisting offset via a separate session. On restart, skips rows before the stored offset. Graceful shutdown persists the last committed row offset so the next run resumes from there.
 
 - [x] **Pre-flight DB health check** — `db_health_check()` runs `SELECT 1` at the start of `load_rds_to_db()` before downloading or processing any files. Raises immediately if the database is unreachable.
 
