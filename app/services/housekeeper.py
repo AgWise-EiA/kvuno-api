@@ -18,6 +18,7 @@ from flask import current_app
 from geoalchemy2 import WKTElement
 from sqlalchemy import text as db_text
 from sqlalchemy.exc import SQLAlchemyError
+from tqdm import tqdm
 
 from app import create_app
 from app.dto.crop_data_resp import CropDataRecord
@@ -31,8 +32,7 @@ from app.utils.logging import SharedLogger
 
 load_dotenv()
 
-loglevel = os.getenv('LOG_LEVEL', 'INFO').upper()
-shared_logger = SharedLogger(level=loglevel)
+shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 _app = None
@@ -290,6 +290,15 @@ def process_file(
             batches_since_checkpoint = 0
             last_committed_row = resume_offset
 
+            remaining = num_rows - resume_offset
+            pbar = tqdm(
+                total=remaining,
+                unit="rows",
+                desc=f"{file_name} (resumed at row {resume_offset})" if resume_offset else file_name,
+                leave=False,
+                file=__import__('sys').stderr,
+            )
+
             try:
                 for chunk_start in range(resume_offset, num_rows, chunk_size):
                     if shutdown_requested:
@@ -297,6 +306,7 @@ def process_file(
                         break
 
                     chunk_end = min(chunk_start + chunk_size, num_rows)
+                    pbar.update(chunk_end - chunk_start)
                     chunk = data.iloc[chunk_start:chunk_end]
 
                     logger.debug(f"Processing chunk from rows {chunk_start} to {chunk_end} of {file_name}")
@@ -355,14 +365,15 @@ def process_file(
                         processed_files_repo.upsert_offset(checksum, file_name, chunk_end)
                         batches_since_checkpoint = 0
                         logger.debug(f"Checkpoint committed at row {chunk_end}")
-
                     if shutdown_requested:
                         break
 
             except BaseException:
+                pbar.close()
                 session.rollback()
                 raise
 
+            pbar.close()
             session.commit()
 
             elapsed = time.time() - start_time
@@ -464,37 +475,28 @@ def watch_directory(
     checkpoint_interval: int = 50,
     dry_run: bool = False,
 ):
-    """Watch *data_folder* for new files and process them as they arrive.
-
-    Requires ``watchdog`` (install with ``pip install kvuno-api[watch]``).
-    """
+    """Watch *data_folder* for new files and process them as they arrive."""
     try:
-        from watchdog.observers import Observer
-        from watchdog.events import FileSystemEventHandler
+        from watchdog.observers.polling import PollingObserver as Observer
     except ImportError:
-        logger.error(
-            "watchdog is required for --watch mode. Install it with: "
-            "pip install kvuno-api[watch]  or  poetry install --extras watch"
-        )
+        logger.error("watchdog is required for --watch mode: poetry add watchdog")
         raise
 
     os.makedirs(data_folder, exist_ok=True)
 
-    class RDSHandler(FileSystemEventHandler):
-        def on_created(self, event):
-            if event.is_directory:
-                return
-            if not (event.src_path.endswith('.RDS') or event.src_path.endswith('.parquet')):
-                return
-            logger.info(f"New file detected: {event.src_path}")
-            process_file(event.src_path, batch_size=batch_size, chunk_size=chunk_size,
-                         checkpoint_interval=checkpoint_interval, dry_run=dry_run)
+    from app.services.watch_handler import RDSFileHandler
 
-    event_handler = RDSHandler()
-    observer = Observer()
+    event_handler = RDSFileHandler(
+        batch_size=batch_size,
+        chunk_size=chunk_size,
+        checkpoint_interval=checkpoint_interval,
+        dry_run=dry_run,
+    )
+    observer = Observer(timeout=1)
     observer.schedule(event_handler, data_folder, recursive=False)
     observer.start()
-    logger.info(f"Watching {data_folder} for new files...")
+    logger.info(f"Watching {data_folder} for new files (polling every 1s)...")
+    logger.info(f"Existing files: {[f for f in os.listdir(data_folder) if f.endswith(('.RDS', '.rds', '.parquet'))]}")
 
     try:
         while True:
