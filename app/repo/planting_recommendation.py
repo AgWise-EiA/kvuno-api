@@ -62,6 +62,14 @@ class PlantingRecommendationRepo:
             raise
 
     def get_filtered_data(self, filters: PlantingDataFilter) -> Query:
+        query = self._apply_filters(filters)
+        sort_col = filters.sort_col or 'id'
+        sort_dir = filters.sort_dir or 'asc'
+        col_attr = getattr(PlantingRecommendation, sort_col, PlantingRecommendation.id)
+        query = query.order_by(col_attr.asc() if sort_dir == 'asc' else col_attr.desc())
+        return query
+
+    def _apply_filters(self, filters: PlantingDataFilter) -> Query:
         session = self._get_session()
         query = session.query(PlantingRecommendation)
 
@@ -83,11 +91,6 @@ class PlantingRecommendationRepo:
             query = query.filter(PlantingRecommendation.opt_date == filters.opt_date)
         if filters.planting_option is not None:
             query = query.filter(PlantingRecommendation.planting_option == filters.planting_option)
-
-        sort_col = filters.sort_col or 'id'
-        sort_dir = filters.sort_dir or 'asc'
-        col_attr = getattr(PlantingRecommendation, sort_col, PlantingRecommendation.id)
-        query = query.order_by(col_attr.asc() if sort_dir == 'asc' else col_attr.desc())
         return query
 
     def get_paginated_data(self, filters: PlantingDataFilter, page: int, per_page: int) -> QueryPagination:
@@ -108,20 +111,21 @@ class PlantingRecommendationRepo:
     def get_clusters(self, filters: PlantingDataFilter, zoom: int,
                      ne_lat: float, ne_lng: float,
                      sw_lat: float, sw_lng: float) -> list[dict]:
-        from geoalchemy2.functions import ST_X, ST_Y
         session = self._get_session()
 
-        grid_size = max(0.001, 360.0 / (2 ** max(zoom, 1)))
+        grid_size = max(0.0001, 360.0 / (2 ** max(zoom, 1)))
         bounds = func.ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)
 
-        # Apply filters + spatial bounding box
-        query = self.get_filtered_data(filters)
+        # Base query: filters + spatial bounding box — no ORDER BY (conflicts with GROUP BY)
+        query = session.query(PlantingRecommendation)
+        query = self._apply_filters(query, filters)
         query = query.filter(
             PlantingRecommendation.coordinates.intersects(bounds)
         ).filter(
             PlantingRecommendation.lat.isnot(None),
             PlantingRecommendation.lon.isnot(None),
         )
+        query = query.order_by(None)
 
         # Group by grid cell and return center + count
         grid = func.ST_SnapToGrid(PlantingRecommendation.coordinates, grid_size)
@@ -129,7 +133,6 @@ class PlantingRecommendationRepo:
             func.avg(PlantingRecommendation.lat).label('lat'),
             func.avg(PlantingRecommendation.lon).label('lon'),
             func.count(PlantingRecommendation.id).label('count'),
-            grid.label('grid'),
         ).group_by(grid).all()
 
         return [
