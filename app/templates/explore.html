@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Explore — kvuno{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('npm_serve', filename='leaflet/dist/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('npm_serve', filename='bootstrap-icons/font/bootstrap-icons.css') }}">
+<style>
+  #explore-map { height: 380px; border-radius: 8px; z-index: 0; }
+  .filter-card .form-label { font-size: .8rem; margin-bottom: .15rem; font-weight: 500; }
+  .filter-card .form-control, .filter-card .form-select { font-size: .85rem; }
+  .table-wrap { max-height: 420px; overflow-y: auto; }
+  .table-wrap thead { position: sticky; top: 0; z-index: 1; }
+  .col-sort { cursor: pointer; user-select: none; }
+  .col-sort:hover { color: #1976d2; }
+  .col-sort::after { content: ''; margin-left: .3rem; }
+  .col-sort.asc::after { content: '▲'; font-size: .65rem; }
+  .col-sort.desc::after { content: '▼'; font-size: .65rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-3">
+
+  <!-- Filters -->
+  <div class="card p-3 filter-card">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h2 class="h6 mb-0 me-2"><i class="bi bi-funnel"></i> Filters</h2>
+      <button class="btn btn-sm btn-outline-secondary" id="clear-filters">Clear</button>
+      <span class="text-muted small ms-auto" id="result-count"></span>
+    </div>
+    <div class="row g-2">
+      <div class="col-6 col-md-3">
+        <label class="form-label">Country</label>
+        <input type="text" class="form-control" id="f-country" placeholder="e.g. Zambia">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Province</label>
+        <input type="text" class="form-control" id="f-province" placeholder="e.g. Southern">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Variety</label>
+        <input type="text" class="form-control" id="f-variety" placeholder="e.g. Soybean">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Season</label>
+        <input type="text" class="form-control" id="f-season" placeholder="e.g. Main">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Opt. date</label>
+        <input type="date" class="form-control" id="f-date">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Planting option</label>
+        <input type="number" class="form-control" id="f-option" placeholder="e.g. 1" min="1" max="5">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Radius (m)</label>
+        <input type="number" class="form-control" id="f-radius" placeholder="e.g. 50000" min="0">
+      </div>
+      <div class="col-6 col-md-3 d-flex align-items-end">
+        <div class="d-flex gap-1 w-100">
+          <input type="text" class="form-control" id="f-lon" placeholder="Lon" style="width:50%">
+          <input type="text" class="form-control" id="f-lat" placeholder="Lat" style="width:50%">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map + Table side by side on large screens -->
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card p-2">
+        <div id="explore-map"></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h2 class="h6 mb-0"><i class="bi bi-table"></i> Data</h2>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" id="export-csv"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+            <button class="btn btn-outline-secondary" id="export-json"><i class="bi bi-file-earmark-code"></i> JSON</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light small">
+              <tr>
+                <th class="col-sort" data-col="country">Country</th>
+                <th class="col-sort" data-col="province">Province</th>
+                <th class="col-sort" data-col="variety">Variety</th>
+                <th class="col-sort" data-col="lon">Lon</th>
+                <th class="col-sort" data-col="lat">Lat</th>
+                <th class="col-sort" data-col="season_type">Season</th>
+                <th class="col-sort" data-col="opt_date">Opt. date</th>
+                <th class="col-sort" data-col="planting_option">Option</th>
+              </tr>
+            </thead>
+            <tbody id="data-rows"></tbody>
+          </table>
+        </div>
+        <div class="d-flex align-items-center justify-content-between mt-2 small">
+          <span class="text-muted" id="page-info"></span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" id="page-prev" disabled><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary" id="page-next" disabled><i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('npm_serve', filename='leaflet/dist/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/explore.js') }}"></script>
+{% endblock %}
