@@ -172,7 +172,7 @@ def register_app_routes(app):
     @app.route('/ui/upload', methods=['GET'])
     def upload_ui():
         max_size = int(os.getenv('MAX_FILE_SIZE_MB', '20'))
-        return render_template('upload.html', max_file_size=max_size * 1024 * 1024)
+        return render_template('upload.html', max_file_size=max_size * 1024 * 1024, active_nav='upload')
 
     @app.route('/ui/upload/resumable', methods=['GET'])
     def upload_resumable_test():
@@ -290,7 +290,7 @@ def register_app_routes(app):
 
     @app.route('/ui/jobs', methods=['GET'])
     def ui_jobs_html():
-        return render_template('jobs.html')
+        return render_template('jobs.html', active_nav='jobs')
 
     @app.route('/ui/jobs/data', methods=['GET'])
     def ui_jobs_data():
