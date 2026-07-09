@@ -45,6 +45,16 @@ class PlantingDataFilter(BaseModel):
         description='Option for planting, typically an integer',
         json_schema_extra={"example": 1},
     )
+    sort_col: Optional[str] = Field(
+        default=None,
+        description='Column to sort by',
+        json_schema_extra={"example": "country"},
+    )
+    sort_dir: Optional[str] = Field(
+        default=None,
+        description='Sort direction: asc or desc',
+        json_schema_extra={"example": "asc"},
+    )
 
     model_config = ConfigDict(
         use_enum_values=True,

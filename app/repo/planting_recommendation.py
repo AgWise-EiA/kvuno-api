@@ -84,7 +84,10 @@ class PlantingRecommendationRepo:
         if filters.planting_option is not None:
             query = query.filter(PlantingRecommendation.planting_option == filters.planting_option)
 
-        query = query.order_by(PlantingRecommendation.id)
+        sort_col = filters.sort_col or 'id'
+        sort_dir = filters.sort_dir or 'asc'
+        col_attr = getattr(PlantingRecommendation, sort_col, PlantingRecommendation.id)
+        query = query.order_by(col_attr.asc() if sort_dir == 'asc' else col_attr.desc())
         return query
 
     def get_paginated_data(self, filters: PlantingDataFilter, page: int, per_page: int) -> QueryPagination:
