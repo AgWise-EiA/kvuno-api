@@ -209,43 +209,15 @@
 
   function exportFormat(fmt) {
     var q = buildQuery();
-    // fetch all matching records (no pagination limit)
     var p = new URLSearchParams(q);
-    p.set('per_page', 100000);
-    p.set('page', 1);
-    fetch('/api/v1/planting-data?' + p.toString())
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var items = data.data || [];
-        if (!items.length) { showToast('No data to export.', 'warning'); return; }
-        var blob, ext;
-        if (fmt === 'csv') {
-          ext = 'csv';
-          var headers = Object.keys(items[0]).filter(function (k) { return k !== 'check_sum' && k !== 'coordinates'; });
-          var lines = [headers.join(',')];
-          items.forEach(function (row) {
-            lines.push(headers.map(function (h) {
-              var v = row[h];
-              if (v === null || v === undefined) return '';
-              v = String(v);
-              if (v.indexOf(',') !== -1 || v.indexOf('"') !== -1 || v.indexOf('\n') !== -1) {
-                v = '"' + v.replace(/"/g, '""') + '"';
-              }
-              return v;
-            }).join(','));
-          });
-          blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        } else {
-          ext = 'json';
-          blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json;charset=utf-8;' });
-        }
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'kvuno-export.' + ext;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      })
-      .catch(function (err) { showToast('Export failed: ' + err.message, 'danger'); });
+    p.set('format', fmt);
+    var url = '/api/v1/planting-data/export?' + p.toString();
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'kvuno-export.' + fmt;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   // ── Event wiring ────────────────────────────────────────────

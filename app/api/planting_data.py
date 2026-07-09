@@ -1,4 +1,8 @@
-from flask import request
+import csv
+import io
+import json
+
+from flask import request, Response, stream_with_context
 from flask_openapi3 import Tag, APIBlueprint
 
 from app.config import API_PREFIX, API_VERSION
@@ -19,6 +23,8 @@ shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 repo = PlantingRecommendationRepo()
+
+EXPORT_COLUMNS = ['country', 'province', 'lon', 'lat', 'variety', 'season_type', 'opt_date', 'planting_option']
 
 
 class CoordinatesResponse(BaseModel):
@@ -69,4 +75,58 @@ def get_coordinates(query: PlantingDataFilter):
         return {"coordinates": [{"lat": lat, "lon": lon} for lat, lon in points]}, 200
     except Exception as e:
         logger.error(f"Error retrieving coordinates: {e}")
+        return {'error': str(e)}, 500
+
+
+def _row_to_dict(row):
+    return {col: getattr(row, col, None) for col in EXPORT_COLUMNS}
+
+
+@api.get('/export')
+def export_data(query: PlantingDataFilter):
+    fmt = request.args.get('format', 'csv')
+
+    try:
+        rows = repo.get_filtered_data(query)
+
+        if fmt == 'json':
+            def generate_json():
+                yield '[\n'
+                first = True
+                for batch in rows.yield_per(500):
+                    d = _row_to_dict(batch)
+                    line = json.dumps(d, default=str)
+                    if not first:
+                        yield ',\n'
+                    yield line
+                    first = False
+                yield '\n]\n'
+
+            return Response(
+                stream_with_context(generate_json()),
+                mimetype='application/json',
+                headers={'Content-Disposition': 'attachment; filename=kvuno-export.json'},
+            )
+
+        def generate_csv():
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(EXPORT_COLUMNS)
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+            for batch in rows.yield_per(500):
+                w.writerow([getattr(batch, col, None) or '' for col in EXPORT_COLUMNS])
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+        return Response(
+            stream_with_context(generate_csv()),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=kvuno-export.csv'},
+        )
+
+    except Exception as e:
+        logger.error(f"Error exporting data: {e}")
         return {'error': str(e)}, 500
