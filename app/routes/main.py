@@ -170,6 +170,8 @@ def register_app_routes(app):
 
     @app.route('/npm/<path:filename>')
     def npm_serve(filename):
+        if os.getenv('FLASK_ENV', 'development') != 'development':
+            abort(404)
         nm = os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..', 'node_modules'))
         safe = safe_join(nm, filename)
         if safe is None or not os.path.realpath(safe).startswith(nm):
