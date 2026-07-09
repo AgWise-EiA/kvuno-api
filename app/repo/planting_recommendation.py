@@ -158,8 +158,12 @@ class PlantingRecommendationRepo:
         for m in mappings:
             key = tuple(m.get(c) for c in unique_cols)
             if key in existing_keys:
+                record_data = {
+                    k: str(v) if not isinstance(v, (str, int, float, bool, list, dict)) and v is not None else v
+                    for k, v in m.items()
+                }
                 conflict = ImportConflict(
-                    record_data=m,
+                    record_data=record_data,
                     country=m.get('country'),
                     province=m.get('province'),
                     lon=m.get('lon'),
