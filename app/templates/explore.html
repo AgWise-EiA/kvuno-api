@@ -2,6 +2,8 @@
 {% block title %}Explore — kvuno{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('npm_serve', filename='leaflet/dist/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('npm_serve', filename='leaflet.markercluster/dist/MarkerCluster.css') }}">
+<link rel="stylesheet" href="{{ url_for('npm_serve', filename='leaflet.markercluster/dist/MarkerCluster.Default.css') }}">
 <link rel="stylesheet" href="{{ url_for('npm_serve', filename='bootstrap-icons/font/bootstrap-icons.css') }}">
 <style>
   #explore-map { height: 380px; border-radius: 8px; z-index: 0; }
@@ -117,6 +119,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('npm_serve', filename='leaflet/dist/leaflet.js') }}"></script>
+<script src="{{ url_for('npm_serve', filename='leaflet.markercluster/dist/leaflet.markercluster.js') }}"></script>
 <script src="{{ url_for('npm_serve', filename='leaflet.heat/dist/leaflet-heat.js') }}"></script>
 <script src="{{ url_for('static', filename='js/explore.js') }}"></script>
 {% endblock %}
