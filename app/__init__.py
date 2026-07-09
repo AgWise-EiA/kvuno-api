@@ -151,7 +151,9 @@ def create_app():
     )
 
     # Enable Cross-Origin Resource Sharing (CORS)
-    CORS(app)
+    cors_origins = os.getenv('CORS_ORIGINS', 'http://127.0.0.1:5000')
+    origins = [o.strip() for o in cors_origins.split(',') if o.strip()]
+    CORS(app, origins=origins, supports_credentials=True)
 
     # Configure the database URI
     app.config['SQLALCHEMY_DATABASE_URI'] = build_db_url()
