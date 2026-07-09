@@ -8,6 +8,7 @@ from flask import request
 from flask_openapi3 import Tag, APIBlueprint
 from pydantic import BaseModel, Field
 
+from app.cache import invalidate_cache
 from app.config import API_PREFIX, API_VERSION
 from app.dto.upload import UploadResponse
 
@@ -51,6 +52,10 @@ def _process_uploaded_file(f):
         columns = _read_columns(dest, ext)
     except Exception as e:
         return {"error": f"Failed to read file columns: {e}", "file": unique_name}, 400
+
+    # Invalidate cached aggregation data since the dataset changed
+    for prefix in ('filters', 'coordinates', 'clusters'):
+        invalidate_cache(prefix)
 
     if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
         from app.services.housekeeper import process_file_async

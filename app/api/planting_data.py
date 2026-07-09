@@ -5,6 +5,7 @@ import json
 from flask import request, Response, stream_with_context
 from flask_openapi3 import Tag, APIBlueprint
 
+from app.cache import api_cache
 from app.config import API_PREFIX, API_VERSION
 from app.dto.data_filters import PlantingDataFilter
 from app.dto.planting_recommendation import PlantingRecommendationRecord, PlantingRecommendationResponse, Unauthorized
@@ -82,6 +83,7 @@ FILTER_COLUMNS = ['country', 'province', 'variety', 'season_type']
 
 
 @api.get('/filters')
+@api_cache('filters', ttl=300)
 def get_filter_options():
     try:
         values = repo.get_distinct_values(FILTER_COLUMNS)
@@ -93,6 +95,7 @@ def get_filter_options():
 
 @api.get('/coordinates',
          responses={200: CoordinatesResponse, 401: Unauthorized})
+@api_cache('coordinates', ttl=120)
 def get_coordinates(query: PlantingDataFilter):
     try:
         points = repo.get_coordinates(query)
@@ -104,6 +107,7 @@ def get_coordinates(query: PlantingDataFilter):
 
 @api.get('/clusters',
          responses={200: ClustersResponse, 401: Unauthorized})
+@api_cache('clusters', ttl=120)
 def get_clusters(query: PlantingDataFilter):
     try:
         zoom = int(request.args.get('zoom', 5))
