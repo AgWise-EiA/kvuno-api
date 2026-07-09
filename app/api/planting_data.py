@@ -6,6 +6,7 @@ from app.dto.data_filters import PlantingDataFilter
 from app.dto.planting_recommendation import PlantingRecommendationRecord, PlantingRecommendationResponse, Unauthorized
 from app.repo.planting_recommendation import PlantingRecommendationRepo
 from app.utils.logging import SharedLogger
+from pydantic import BaseModel, Field
 
 __bp__ = "/planting-data"
 url_prefix = API_PREFIX + API_VERSION + __bp__
@@ -18,6 +19,10 @@ shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 repo = PlantingRecommendationRepo()
+
+
+class CoordinatesResponse(BaseModel):
+    coordinates: list[dict] = Field(default=[], description="Array of {lat, lon} objects")
 
 
 @api.get('',
@@ -53,4 +58,15 @@ def get_data(query: PlantingDataFilter):
 
     except Exception as e:
         logger.error(f"Error retrieving planting recommendation data: {e}")
+        return {'error': str(e)}, 500
+
+
+@api.get('/coordinates',
+         responses={200: CoordinatesResponse, 401: Unauthorized})
+def get_coordinates(query: PlantingDataFilter):
+    try:
+        points = repo.get_coordinates(query)
+        return {"coordinates": [{"lat": lat, "lon": lon} for lat, lon in points]}, 200
+    except Exception as e:
+        logger.error(f"Error retrieving coordinates: {e}")
         return {'error': str(e)}, 500

@@ -11,6 +11,8 @@
 
   var map = null;
   var markers = null;
+  var heat = null;
+  var heatVisible = false;
 
   // ── DOM refs ────────────────────────────────────────────────
 
@@ -163,6 +165,7 @@
 
   function renderMap(data) {
     initMap();
+    if (heatVisible) return;
     markers.clearLayers();
     var items = data.data || [];
     if (!items.length) return;
@@ -287,6 +290,53 @@
       fetchData();
     });
   });
+
+  // ── Heatmap toggle ──────────────────────────────────────────
+
+  var heatmapBtn = $('toggle-heatmap');
+
+  heatmapBtn.addEventListener('click', function () {
+    heatVisible = !heatVisible;
+    heatmapBtn.classList.toggle('active', heatVisible);
+    heatmapBtn.innerHTML = heatVisible
+      ? '<i class="bi bi-fire"></i> Points'
+      : '<i class="bi bi-fire"></i> Heatmap';
+
+    if (heatVisible) {
+      if (markers) map.removeLayer(markers);
+      showHeatmap();
+    } else {
+      if (heat) map.removeLayer(heat);
+      if (markers) map.addLayer(markers);
+    }
+  });
+
+  function showHeatmap() {
+    var p = new URLSearchParams();
+    forEachFilter(function (key, el) {
+      if (el.value) p.set(key, el.value);
+    });
+    if (filters.lon.value && filters.lat.value) {
+      p.set('coordinates', filters.lon.value + ',' + filters.lat.value);
+    }
+
+    fetch('/api/v1/planting-data/coordinates?' + p.toString())
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        var points = (data.coordinates || []).map(function (c) {
+          return [c.lat, c.lon, 1];
+        });
+        if (!points.length) { alert('No coordinate data to show.'); return; }
+        if (heat) map.removeLayer(heat);
+        heat = L.heatLayer(points, {
+          radius: 20, blur: 15, maxZoom: 10,
+          gradient: { 0.4: '#1976d2', 0.6: '#ff9800', 0.8: '#f44336' },
+        }).addTo(map);
+        map.fitBounds(points.map(function (p) { return [p[0], p[1]]; }), { padding: [20, 20], maxZoom: 10 });
+      })
+      .catch(function (err) { alert('Heatmap error: ' + err.message); });
+  }
 
   // ── Init ────────────────────────────────────────────────────
 

@@ -94,6 +94,17 @@ class PlantingRecommendationRepo:
         query = self.get_filtered_data(filters)
         return query.paginate(page=page, per_page=per_page, error_out=False)
 
+    def get_coordinates(self, filters: PlantingDataFilter) -> list:
+        query = self.get_filtered_data(filters)
+        query = query.with_entities(
+            PlantingRecommendation.lat,
+            PlantingRecommendation.lon,
+        ).filter(
+            PlantingRecommendation.lat.isnot(None),
+            PlantingRecommendation.lon.isnot(None),
+        )
+        return query.all()
+
     def update(self, record: PlantingRecommendation) -> PlantingRecommendation:
         session = self._get_session()
         try:

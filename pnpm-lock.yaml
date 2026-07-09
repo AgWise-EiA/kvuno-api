@@ -4,12 +4,14 @@ specifiers:
   bootstrap: ^5.3.0
   bootstrap-icons: ^1.11.3
   leaflet: ^1.9.4
+  leaflet.heat: ^0.2.0
   resumablejs: ^1.1.0
 
 dependencies:
   bootstrap: 5.3.8
   bootstrap-icons: 1.13.1
   leaflet: 1.9.4
+  leaflet.heat: 0.2.0
   resumablejs: 1.1.0
 
 packages:
@@ -22,6 +24,10 @@ packages:
     resolution: {integrity: sha512-HP1SZDqaLDPwsNiqRqi5NcP0SSXciX2s9E+RyqJIIqGo+vJeN5AJVM98CXmW/Wux0nQ5L7jeWUdplCEf0Ee+tg==}
     peerDependencies:
       '@popperjs/core': ^2.11.8
+    dev: false
+
+  /leaflet.heat/0.2.0:
+    resolution: {integrity: sha512-Cd5PbAA/rX3X3XKxfDoUGi9qp78FyhWYurFg3nsfhntcM/MCNK08pRkf4iEenO1KNqwVPKCmkyktjW3UD+h9bQ==}
     dev: false
 
   /leaflet/1.9.4:
