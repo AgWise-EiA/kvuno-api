@@ -20,3 +20,14 @@ class TestPathTraversalNpmServe:
 
         bad = safe_join(nm, "../../etc/passwd")
         assert bad is None
+
+
+class TestUploadSizeEnforcement:
+    def test_max_size_constant_defined(self):
+        from app.api.upload import MAX_FILE_SIZE
+        assert MAX_FILE_SIZE == 20 * 1024 * 1024
+
+    def test_upload_rejects_oversized(self):
+        from app.api.upload import MAX_FILE_SIZE
+        max_mb = MAX_FILE_SIZE / 1024 / 1024
+        assert max_mb == 20

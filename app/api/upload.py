@@ -21,6 +21,7 @@ api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
 DATA_DIR = HOUSEKEEPING_DATA_DIR
 
 ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
+MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE_MB', '20')) * 1024 * 1024
 
 
 def _read_columns(path: str, ext: str):
@@ -41,6 +42,12 @@ def _process_uploaded_file(f):
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         return {"error": f"Unsupported extension {ext}. Allowed: {ALLOWED_EXTENSIONS}"}, 400
+
+    f.seek(0, os.SEEK_END)
+    size = f.tell()
+    f.seek(0)
+    if size > MAX_FILE_SIZE:
+        return {"error": f"File too large ({size / 1024 / 1024:.1f} MB). Maximum allowed: {MAX_FILE_SIZE / 1024 / 1024:.0f} MB"}, 413
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -69,7 +76,7 @@ def _process_uploaded_file(f):
     )
 
 
-@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}})
+@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}, 413: {"description": "File too large"}})
 def upload_file():
     """Upload one or more RDS or Parquet files for processing.
 
