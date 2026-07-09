@@ -144,7 +144,7 @@ body {
 .table tbody tr:last-child { border-bottom: none; }
 .table td { padding: .5rem; vertical-align: middle; }
 
-/* sticky table header shadow — height set per-page via inline styles */
+/* sticky table header shadow */
 .table-wrap { overflow-y: auto; border-radius: var(--radius-sm); }
 .table-wrap thead { position: sticky; top: 0; z-index: 2; }
 .table-wrap thead::after {
@@ -163,7 +163,7 @@ body {
 .table-wrap::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
 
 /* ── Drop zone (upload) ───────────────────────────────────── */
-#drop-zone {
+.drop-zone {
   border: 2px dashed var(--border);
   border-radius: var(--radius-lg);
   padding: 2.5rem 1rem;
@@ -171,20 +171,20 @@ body {
   transition: all var(--transition);
   background: var(--surface);
 }
-#drop-zone:hover {
+.drop-zone:hover {
   background: var(--primary-light);
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(25,118,210,.08);
 }
-#drop-zone.has-file {
+.drop-zone.has-file {
   border-color: var(--success);
   background: #e8f5e9;
 }
-#drop-zone .icon { font-size: 2.5rem; margin-bottom: .5rem; color: var(--text-secondary); }
-#drop-zone:hover .icon { color: var(--primary); }
+.drop-zone .icon { font-size: 2.5rem; margin-bottom: .5rem; color: var(--text-secondary); }
+.drop-zone:hover .icon { color: var(--primary); }
 
-#progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-#progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width .4s ease; }
+.upload-progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.upload-progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width .4s ease; }
 
 /* ── File list items (upload) ─────────────────────────────── */
 .file-item {
@@ -199,9 +199,6 @@ body {
 }
 .file-item:hover { border-color: var(--primary); background: var(--primary-light); }
 .file-item .file-icon { font-size: 1.3rem; color: var(--primary); }
-
-/* ── Map ──────────────────────────────────────────────────── */
-#explore-map { border-radius: var(--radius); overflow: hidden; }
 
 /* ── Skeleton loader ──────────────────────────────────────── */
 @keyframes shimmer {
@@ -221,10 +218,10 @@ body {
 .main-content { min-height: calc(100vh - 120px); }
 
 /* ── Job search input ────────────────────────────────────── */
-#job-search { max-width: 260px; }
+.job-search-input { max-width: 260px; }
 
 /* ── Toast container ──────────────────────────────────────── */
-#toast-container {
+.toast-container {
   position: fixed;
   top: 1rem;
   right: 1rem;
@@ -260,8 +257,8 @@ body {
 }
 .fade-in { animation: fadeIn .4s ease; }
 
-/* ── Pagination ────────────────────────────────────────────── */
-#page-info, #conflict-page-info, #page-info-dup { font-size: .8rem; color: var(--text-secondary); }
+/* ── Pagination info ────────────────────────────────────────── */
+.page-info, .conflict-page-info, .page-info-dup { font-size: .8rem; color: var(--text-secondary); }
 
 /* ── Badge tweaks ─────────────────────────────────────────── */
 .badge { font-weight: 600; padding: .3em .6em; border-radius: 4px; }
@@ -269,7 +266,7 @@ body {
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 576px) {
   .stat-card .num { font-size: 1.5rem; }
-  #drop-zone { padding: 1.5rem .75rem; }
+  .drop-zone { padding: 1.5rem .75rem; }
   .navbar .nav-link { padding: .35rem .6rem; font-size: .85rem; }
   .table-wrap { max-height: 300px; }
 }

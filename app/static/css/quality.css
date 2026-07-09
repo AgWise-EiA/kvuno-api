@@ -24,13 +24,13 @@
 .bar-cell .bar { height: 1.2rem; border-radius: 3px; min-width: 2px; }
 
 /* Filter inputs */
-#f-country, #f-source { width: 140px; }
-#f-search { width: 180px; }
+.f-country, .f-source { width: 140px; }
+.f-search { width: 180px; }
 
 /* Flex fill layout */
-.quality-page .tab-pane .card { display: flex; flex-direction: column; }
-.quality-page .tab-pane .card .table-wrap { flex: 1; }
+.quality-tab-pane .card { display: flex; flex-direction: column; }
+.quality-tab-pane .card .table-wrap { flex: 1; }
 
 @media (min-width: 992px) {
-  .quality-page .tab-content { min-height: calc(100vh - 300px); }
+  .quality-tab-content { min-height: calc(100vh - 300px); }
 }

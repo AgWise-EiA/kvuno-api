@@ -1,6 +1,6 @@
 /* ── Explore page — map + table ──────────────────────────── */
 
-#explore-map {
+.explore-map {
   height: 100%;
   min-height: 450px;
   border-radius: 8px;
@@ -25,12 +25,12 @@
 .col-sort.desc::after { content: '\25BC'; font-size: .65rem; }
 
 /* lon/lat inline inputs */
-#f-lon, #f-lat { width: 50% !important; }
+.f-lon, .f-lat { width: 50% !important; }
 
 /* Flex fill layout */
-.map-col .card,
+.explore-map-col .card,
 .data-col .card { display: flex; flex-direction: column; }
-.map-col .card { flex: 1; }
+.explore-map-col .card { flex: 1; }
 .data-col .card { flex: 1; }
 .data-col .card .table-wrap { flex: 1; }
 .map-row { flex: 1; }
