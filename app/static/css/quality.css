@@ -1,0 +1,36 @@
+/* ── Quality page — stats, conflicts, duplicates ─────────── */
+
+.stat-card {
+  text-align: center;
+  padding: .75rem .5rem;
+  border-radius: 8px;
+}
+.stat-card .num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.stat-card .lbl {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .75;
+}
+
+.table-wrap { overflow-y: auto; flex: 1; min-height: 300px; }
+.table-wrap thead { position: sticky; top: 0; z-index: 1; }
+
+.bar-cell { display: flex; align-items: center; gap: .5rem; }
+.bar-cell .bar { height: 1.2rem; border-radius: 3px; min-width: 2px; }
+
+/* Filter inputs */
+#f-country, #f-source { width: 140px; }
+#f-search { width: 180px; }
+
+/* Flex fill layout */
+.quality-page .tab-pane .card { display: flex; flex-direction: column; }
+.quality-page .tab-pane .card .table-wrap { flex: 1; }
+
+@media (min-width: 992px) {
+  .quality-page .tab-content { min-height: calc(100vh - 300px); }
+}

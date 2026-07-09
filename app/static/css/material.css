@@ -217,6 +217,12 @@ body {
 .skeleton-text { height: 1em; width: 60%; }
 .skeleton-stat { height: 2.5rem; width: 80px; border-radius: var(--radius-sm); }
 
+/* ── Main content area ───────────────────────────────────── */
+.main-content { min-height: calc(100vh - 120px); }
+
+/* ── Job search input ────────────────────────────────────── */
+#job-search { max-width: 260px; }
+
 /* ── Toast container ──────────────────────────────────────── */
 #toast-container {
   position: fixed;
