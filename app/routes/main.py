@@ -273,8 +273,15 @@ def register_app_routes(app):
         if not file_name:
             return jsonify(error="No file specified"), 400
 
-        file_path = os.path.join(DATA_DIR, file_name)
-        if not os.path.isfile(file_path):
+        ext = os.path.splitext(file_name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return jsonify(error=f"Unsupported extension '{ext}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}"), 400
+
+        data_dir = Path(DATA_DIR).resolve()
+        file_path = (data_dir / file_name).resolve()
+        if not str(file_path).startswith(str(data_dir)):
+            abort(404)
+        if not file_path.is_file():
             return jsonify(error=f"File not found: {file_name}"), 404
 
         invalid = [v for v in column_map.values() if v not in DB_TARGET_COLUMNS]

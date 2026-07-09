@@ -33,7 +33,7 @@ class TestUploadSizeEnforcement:
         assert max_mb == 20
 
 
-class TestProgressPathTraversal:
+class TestPathSafety:
     def test_resolve_under_data_dir(self):
         from pathlib import Path
         data_dir = Path("/tmp/data").resolve()
@@ -45,3 +45,10 @@ class TestProgressPathTraversal:
         data_dir = Path("/tmp/data").resolve()
         invalid = (data_dir / "../../etc/passwd").resolve()
         assert not str(invalid).startswith(str(data_dir))
+
+    def test_extension_validation(self):
+        from app.routes.main import ALLOWED_EXTENSIONS
+        assert '.rds' in ALLOWED_EXTENSIONS
+        assert '.parquet' in ALLOWED_EXTENSIONS
+        assert '.py' not in ALLOWED_EXTENSIONS
+        assert '.json' not in ALLOWED_EXTENSIONS
