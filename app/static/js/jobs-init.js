@@ -1,7 +1,7 @@
-var source = new EventSource('/ui/jobs/events');
-var allJobs = [];
-var activeFilter = 'all';
-var searchTerm = '';
+const source = new EventSource('/ui/jobs/events');
+let allJobs = [];
+let activeFilter = 'all';
+let searchTerm = '';
 
 document.getElementById('status-tabs').addEventListener('click', function (e) {
   var btn = e.target.closest('button');
@@ -18,7 +18,7 @@ document.getElementById('job-search').addEventListener('input', function () {
 });
 
 source.addEventListener('message', function (e) {
-  var data = JSON.parse(e.data);
+  const data = JSON.parse(e.data);
   allJobs = data.jobs || [];
   renderJobs(allJobs);
   highlightJob();
@@ -28,7 +28,7 @@ function filtered(jobs) {
   return jobs.filter(function (j) {
     if (activeFilter !== 'all' && j.status !== activeFilter) return false;
     if (searchTerm) {
-      var name = (j.original_name || j.file || '').toLowerCase();
+      const name = (j.original_name || j.file || '').toLowerCase();
       if (name.indexOf(searchTerm) === -1) return false;
     }
     return true;
@@ -40,6 +40,13 @@ function countByStatus(jobs) {
   jobs.forEach(function (j) { c[j.status] = (c[j.status] || 0) + 1; });
   return c;
 }
+
+const STATUS = {
+  processing: { color: 'primary',  bar: '#0d6efd', label: 'Processing' },
+  completed:  { color: 'success',  bar: '#198754', label: 'Completed' },
+  error:      { color: 'danger',   bar: '#dc3545', label: 'Failed' },
+  unknown:    { color: 'secondary', bar: '#6c757d', label: 'Pending' },
+};
 
 function renderJobs(jobs) {
   var body = document.getElementById('jobs-body');
@@ -157,12 +164,6 @@ function showJobDetail(file) {
     });
 }
 
-var STATUS = {
-  processing: { color: 'primary',  bar: '#0d6efd', label: 'Processing' },
-  completed:  { color: 'success',  bar: '#198754', label: 'Completed' },
-  error:      { color: 'danger',   bar: '#dc3545', label: 'Failed' },
-  unknown:    { color: 'secondary', bar: '#6c757d', label: 'Pending' },
-};
 
 function escHtml(s) {
   var d = document.createElement('div');
