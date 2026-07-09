@@ -33,6 +33,7 @@ def api_cache(prefix: str, ttl: int = 300):
                 client = _get_client()
                 cached = client.get(key)
                 if cached is not None:
+                    # noinspection PyTypeChecker
                     return json.loads(cached)
             except RedisError:
                 pass
@@ -41,10 +42,10 @@ def api_cache(prefix: str, ttl: int = 300):
 
             # Flask views may return (body, status) — cache only the body
             body = result
-            status = 200
+            #status = 200
             if isinstance(result, tuple):
-                body, status = result[0], result[1] if len(result) > 1 else 200
-
+                body = result[0]
+                # status = result[1] if len(result) > 1 else 200
             try:
                 client = _get_client()
                 client.setex(key, ttl, json.dumps(body, default=str))
