@@ -187,6 +187,52 @@
     fetchData();
   });
 
+  // ── Map ──────────────────────────────────────────────────────
+
+  function initMap() {
+    if (map) return;
+    map = L.map('explore-map').setView([-12, 28], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 18,
+    }).addTo(map);
+    if (L.markerClusterGroup) {
+      markers = L.markerClusterGroup({ chunkedLoading: true });
+    } else {
+      markers = L.layerGroup();
+    }
+    map.addLayer(markers);
+  }
+
+  function renderMap(data) {
+    initMap();
+    if (heatVisible || clusterVisible) return;
+    markers.clearLayers();
+    var items = data.data || [];
+    if (!items.length) return;
+
+    var bounds = [];
+    items.forEach(function (r) {
+      var lat = parseFloat(r.lat);
+      var lon = parseFloat(r.lon);
+      if (isNaN(lat) || isNaN(lon)) return;
+      var m = L.circleMarker([lat, lon], {
+        radius: 5, fillColor: '#1976d2', color: '#fff',
+        weight: 1, fillOpacity: 0.8,
+      });
+      var label = (r.country || '') + ' - ' + (r.variety || '')
+        + '<br/>Date: ' + (r.opt_date || '')
+        + '<br/>Option: ' + (r.planting_option || '');
+      m.bindTooltip(label);
+      markers.addLayer(m);
+      bounds.push([lat, lon]);
+    });
+
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [20, 20], maxZoom: 12 });
+    }
+  }
+
   // ── Export ───────────────────────────────────────────────────
 
   function exportFormat(fmt) {
