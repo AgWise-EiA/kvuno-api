@@ -102,9 +102,9 @@ Replacing pagination buttons with a virtualized/infinite-scroll table improves b
 - [✅] Replaced text inputs with `<select>` for country, province, variety, season
 - [✅] Populated on page load; `change` event for selects, `input` for text fields
 
-### Phase 4 — Server-side Map Clusters (1 commit, ~4-6h)
-- [ ] `GET /api/v1/planting-data/clusters?zoom=N&bounds=...` — spatial aggregation
-- [ ] Replace client-side heatmap/markers with cluster tiles at low zoom
+### Phase 4 — Server-side Map Clusters (1 commit, ~4-6h) ✅
+- [✅] `GET /api/v1/planting-data/clusters?zoom=N&bounds=...` — spatial aggregation with `ST_SnapToGrid`
+- [✅] Clusters toggle button on explore page — renders sized/colored circles by density
 
 ### Phase 5 — Virtual Scrolling Table (1 commit, ~4-6h, low priority)
 - [ ] Replace pagination buttons with virtualized/infinite-scroll table
