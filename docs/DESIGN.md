@@ -223,14 +223,14 @@ Data scientists are not frontend engineers — the UI should be:
 
 ## Phasing
 
-### Phase 1 — Enhance existing pages (now)
+### Phase 1 — Enhance existing pages ✅
 - ✅ Base layout with Jinja inheritance
 - ✅ url_for for all assets
 - ✅ CDN → local pnpm assets
-- ⬜ Multi-file upload support
-- ⬜ Row preview in column mapping
-- ⬜ Job retry / detail view
-- ⬜ Status filter tabs on Jobs page
+- ✅ Multi-file upload with per-file progress
+- ✅ Row preview (sample values) in column mapping
+- ✅ Job detail modal with retry action
+- ✅ Status filter tabs and filename search on Jobs page
 
 ### Phase 2 — Data Explorer (next)
 - ⬜ New route: `/ui/explore`
