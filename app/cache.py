@@ -17,8 +17,10 @@ def _get_client() -> Redis:
     return _client
 
 
+_VERSION = 'v2'
+
 def _cache_key(prefix: str, query_string: str) -> str:
-    return f"kvuno:{prefix}:{hashlib.md5(query_string.encode()).hexdigest()}"
+    return f"kvuno:{prefix}:{_VERSION}:{hashlib.md5(query_string.encode()).hexdigest()}"
 
 
 def api_cache(prefix: str, ttl: int = 300):
@@ -37,9 +39,15 @@ def api_cache(prefix: str, ttl: int = 300):
 
             result = fn(*args, **kwargs)
 
+            # Flask views may return (body, status) — cache only the body
+            body = result
+            status = 200
+            if isinstance(result, tuple):
+                body, status = result[0], result[1] if len(result) > 1 else 200
+
             try:
                 client = _get_client()
-                client.setex(key, ttl, json.dumps(result, default=str))
+                client.setex(key, ttl, json.dumps(body, default=str))
             except RedisError:
                 pass
             return result
