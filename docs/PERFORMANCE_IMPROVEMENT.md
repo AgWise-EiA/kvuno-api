@@ -85,10 +85,27 @@ Replacing pagination buttons with a virtualized/infinite-scroll table improves b
 | **Database indexes** | 11 indexes covering all filter/sort columns — well indexed |
 | **conditional markerCluster code** | JS already detects `L.markerClusterGroup` — just needs the library loaded |
 
-## Priority Order
+## Phased Implementation Plan
 
-1. Add `leaflet.markercluster` — 10 min, prevents map crash at scale
-2. Server-side export — unblocks export for real datasets
-3. Distinct-value filter dropdowns — better UX, prevents empty result frustration
-4. Server-side cluster endpoint — scales map beyond 50k
-5. Virtual scrolling — nice-to-have, low priority
+### Phase 1 — Map Clustering (1 commit, ~10 min) ✅
+- [✅] Install `leaflet.markercluster` via pnpm
+- [✅] Load script in `explore.html`
+- [✅] Auto-activated — JS already conditionally uses `L.markerClusterGroup`
+
+### Phase 2 — Server-side Export (1 commit, ~2-3h) ✅
+- [✅] `GET /api/v1/planting-data/export?format=csv|json` — streams filtered results with `yield_per(500)`
+- [✅] Replaced client-side Blob export with server streaming download
+- [✅] CSV uses csv.writer for proper quoting, JSON streams as newline-delimited array
+
+### Phase 3 — Distinct-Value Filter Dropdowns (1 commit, ~2-3h) ✅
+- [✅] `GET /api/v1/planting-data/filters` — returns distinct values per column
+- [✅] Replaced text inputs with `<select>` for country, province, variety, season
+- [✅] Populated on page load; `change` event for selects, `input` for text fields
+
+### Phase 4 — Server-side Map Clusters (1 commit, ~4-6h)
+- [ ] `GET /api/v1/planting-data/clusters?zoom=N&bounds=...` — spatial aggregation
+- [ ] Replace client-side heatmap/markers with cluster tiles at low zoom
+
+### Phase 5 — Virtual Scrolling Table (1 commit, ~4-6h, low priority)
+- [ ] Replace pagination buttons with virtualized/infinite-scroll table
+- [ ] Keep URL-based page state for shareability
