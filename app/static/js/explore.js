@@ -4,10 +4,15 @@
 
   var state = {
     page: 1,
-    perPage: 50,
+    perPage: 200,
     sortCol: null,
     sortDir: null,
   };
+
+  var totalRecords = 0;
+  var loading = false;
+  var hasMore = true;
+  var scrollObs = null;
 
   var map = null;
   var markers = null;
@@ -35,8 +40,8 @@
   var dataRows = $('data-rows');
   var pageInfo = $('page-info');
   var resultCount = $('result-count');
-  var prevBtn = $('page-prev');
-  var nextBtn = $('page-next');
+  var scrollStatus = $('scroll-status');
+  var tableWrap = document.querySelector('.table-wrap');
   var clearBtn = $('clear-filters');
   var exportCsv = $('export-csv');
   var exportJson = $('export-json');
@@ -101,7 +106,18 @@
     return p.toString();
   }
 
-  function fetchData() {
+  function fetchData(reset) {
+    if (loading) return;
+    if (!reset && !hasMore) return;
+    loading = true;
+    if (reset) {
+      state.page = 1;
+      hasMore = true;
+      totalRecords = 0;
+      dataRows.innerHTML = '';
+    }
+    scrollStatus.textContent = 'Loading…';
+
     var q = buildQuery();
     urlFromState();
     // highlight active sort
@@ -113,25 +129,62 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
-        renderTable(data);
+        totalRecords = data.total;
+        hasMore = data.current_page < data.pages;
+        renderTable(data.data, !reset);
         renderMap(data);
-        updatePagination(data);
         resultCount.textContent = data.total + ' record' + (data.total !== 1 ? 's' : '');
+        pageInfo.textContent = 'Showing ' + dataRows.children.length + ' of ' + data.total;
+        state.page = data.current_page + 1;
+        updateScrollSentinel();
+        loading = false;
       })
       .catch(function (err) {
-        dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-danger small py-3">' + escHtml(err.message) + '</td></tr>';
+        if (reset || !dataRows.children.length) {
+          dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-danger small py-3">' + escHtml(err.message) + '</td></tr>';
+        }
+        loading = false;
       });
+  }
+
+  function updateScrollSentinel() {
+    disconnectObs();
+    // remove old sentinel
+    var old = dataRows.querySelector('.scroll-sentinel');
+    if (old) old.remove();
+
+    if (!hasMore) {
+      scrollStatus.textContent = '\u2713 All ' + totalRecords + ' records loaded';
+      return;
+    }
+    scrollStatus.textContent = 'Scroll for more…';
+    var tr = document.createElement('tr');
+    tr.className = 'scroll-sentinel';
+    tr.innerHTML = '<td colspan="8" class="text-center small text-muted py-2"><div class="spinner-border spinner-border-sm me-1" role="status"></div> Loading…</td>';
+    dataRows.appendChild(tr);
+    scrollObs = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting && hasMore && !loading) {
+        fetchData(false);
+      }
+    }, { root: tableWrap, rootMargin: '200px' });
+    scrollObs.observe(tr);
+  }
+
+  function disconnectObs() {
+    if (scrollObs) { scrollObs.disconnect(); scrollObs = null; }
   }
 
   // ── Table ───────────────────────────────────────────────────
 
-  function renderTable(data) {
-    var items = data.data || [];
-    if (!items.length) {
+  function renderTable(items, append) {
+    items = items || [];
+    if (!items.length && !append) {
       dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-muted small py-3">No records match your filters.</td></tr>';
+      disconnectObs();
+      scrollStatus.textContent = '';
       return;
     }
-    var rows = items.map(function (r) {
+    var html = items.map(function (r) {
       return '<tr>'
         + '<td>' + escHtml(r.country) + '</td>'
         + '<td>' + escHtml(r.province) + '</td>'
@@ -143,7 +196,11 @@
         + '<td>' + escHtml(r.planting_option) + '</td>'
         + '</tr>';
     }).join('');
-    dataRows.innerHTML = rows;
+    if (append) {
+      dataRows.insertAdjacentHTML('beforeend', html);
+    } else {
+      dataRows.innerHTML = html;
+    }
   }
 
   // ── Map ──────────────────────────────────────────────────────
@@ -194,19 +251,6 @@
     }
   }
 
-  // ── Pagination ──────────────────────────────────────────────
-
-  function updatePagination(data) {
-    pageInfo.textContent = 'Page ' + data.current_page + ' of ' + (data.pages || 1);
-    prevBtn.disabled = data.current_page <= 1;
-    nextBtn.disabled = data.current_page >= (data.pages || 1);
-  }
-
-  function goToPage(page) {
-    state.page = page;
-    fetchData();
-  }
-
   // ── Export ───────────────────────────────────────────────────
 
   function exportFormat(fmt) {
@@ -229,8 +273,7 @@
   function onFilterInput() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
-      state.page = 1;
-      fetchData();
+      fetchData(true);
     }, 350);
   }
 
@@ -241,12 +284,8 @@
 
   clearBtn.addEventListener('click', function () {
     Object.keys(filters).forEach(function (key) { filters[key].value = ''; });
-    state.page = 1;
-    fetchData();
+    fetchData(true);
   });
-
-  prevBtn.addEventListener('click', function () { if (!prevBtn.disabled) goToPage(state.page - 1); });
-  nextBtn.addEventListener('click', function () { if (!nextBtn.disabled) goToPage(state.page + 1); });
 
   exportCsv.addEventListener('click', function () { exportFormat('csv'); });
   exportJson.addEventListener('click', function () { exportFormat('json'); });
@@ -261,8 +300,7 @@
         state.sortCol = col;
         state.sortDir = 'asc';
       }
-      state.page = 1;
-      fetchData();
+      fetchData(true);
     });
   });
 
@@ -423,6 +461,6 @@
 
   loadFilterOptions();
   paramsFromUrl();
-  fetchData();
+  fetchData(true);
 
 })();

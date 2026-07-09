@@ -106,6 +106,8 @@ Replacing pagination buttons with a virtualized/infinite-scroll table improves b
 - [✅] `GET /api/v1/planting-data/clusters?zoom=N&bounds=...` — spatial aggregation with `ST_SnapToGrid`
 - [✅] Clusters toggle button on explore page — renders sized/colored circles by density
 
-### Phase 5 — Virtual Scrolling Table (1 commit, ~4-6h, low priority)
-- [ ] Replace pagination buttons with virtualized/infinite-scroll table
-- [ ] Keep URL-based page state for shareability
+### Phase 5 — Infinite Scroll Table (1 commit, ~4-6h) ✅
+- [✅] Replaced prev/next pagination buttons with intersection-observer-driven infinite scroll
+- [✅] Table appends rows as user scrolls; scroll sentinel triggers next page fetch
+- [✅] Filters/sort resets to page 1 and clears table; URL page state preserved for shareability
+- [✅] Increased default `perPage` to 200 for fewer round trips
