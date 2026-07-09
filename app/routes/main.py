@@ -294,9 +294,12 @@ def register_app_routes(app):
 
     @app.route('/ui/progress/<file_name>', methods=['GET'])
     def ui_progress(file_name):
-        file_path = os.path.join(DATA_DIR, file_name)
-        progress_path = file_path + '.progress.json'
-        if not os.path.isfile(progress_path):
+        data_dir = Path(DATA_DIR).resolve()
+        file_path = (data_dir / file_name).resolve()
+        if not str(file_path).startswith(str(data_dir)):
+            abort(404)
+        progress_path = file_path.with_name(file_path.name + '.progress.json')
+        if not progress_path.is_file():
             return jsonify(status='unknown', current=0, total=0, message='')
         try:
             with open(progress_path) as f:

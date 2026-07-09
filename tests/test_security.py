@@ -31,3 +31,17 @@ class TestUploadSizeEnforcement:
         from app.api.upload import MAX_FILE_SIZE
         max_mb = MAX_FILE_SIZE / 1024 / 1024
         assert max_mb == 20
+
+
+class TestProgressPathTraversal:
+    def test_resolve_under_data_dir(self):
+        from pathlib import Path
+        data_dir = Path("/tmp/data").resolve()
+        valid = (data_dir / "valid_file.rds").resolve()
+        assert str(valid).startswith(str(data_dir))
+
+    def test_traversal_rejected(self):
+        from pathlib import Path
+        data_dir = Path("/tmp/data").resolve()
+        invalid = (data_dir / "../../etc/passwd").resolve()
+        assert not str(invalid).startswith(str(data_dir))
