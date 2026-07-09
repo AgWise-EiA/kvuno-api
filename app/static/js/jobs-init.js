@@ -109,7 +109,7 @@ function retryJob(e) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ file: file }),
   }).then(function (r) { return r.json(); }).then(function (data) {
-    if (data.error) { alert('Retry failed: ' + data.error); }
+    if (data.error) { showToast('Retry failed: ' + data.error, 'danger'); }
     e.target.disabled = false;
     e.target.textContent = 'Retry';
   }).catch(function () {

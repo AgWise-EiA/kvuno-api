@@ -217,7 +217,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var items = data.data || [];
-        if (!items.length) { alert('No data to export.'); return; }
+        if (!items.length) { showToast('No data to export.', 'warning'); return; }
         var blob, ext;
         if (fmt === 'csv') {
           ext = 'csv';
@@ -245,7 +245,7 @@
         a.click();
         URL.revokeObjectURL(a.href);
       })
-      .catch(function (err) { alert('Export failed: ' + err.message); });
+      .catch(function (err) { showToast('Export failed: ' + err.message, 'danger'); });
   }
 
   // ── Event wiring ────────────────────────────────────────────
@@ -327,7 +327,7 @@
         var points = (data.coordinates || []).map(function (c) {
           return [c.lat, c.lon, 1];
         });
-        if (!points.length) { alert('No coordinate data to show.'); return; }
+        if (!points.length) { showToast('No coordinate data to show.', 'warning'); return; }
         if (heat) map.removeLayer(heat);
         heat = L.heatLayer(points, {
           radius: 20, blur: 15, maxZoom: 10,
@@ -335,7 +335,7 @@
         }).addTo(map);
         map.fitBounds(points.map(function (p) { return [p[0], p[1]]; }), { padding: [20, 20], maxZoom: 10 });
       })
-      .catch(function (err) { alert('Heatmap error: ' + err.message); });
+      .catch(function (err) { showToast('Heatmap error: ' + err.message, 'danger'); });
   }
 
   // ── Init ────────────────────────────────────────────────────

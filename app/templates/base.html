@@ -38,7 +38,7 @@
     </div>
 </nav>
 
-<main class="container-fluid py-2" style="max-width:960px;">
+<main class="container-fluid py-2 fade-in" style="max-width:960px;">
     {% block content %}{% endblock %}
 </main>
 
@@ -46,7 +46,29 @@
     kvuno &middot; <a href="https://agwise.cgiar.org" class="text-reset text-decoration-none" target="_blank">AgWise</a>
 </footer>
 
+<div id="toast-container"></div>
+
 <script src="{{ url_for('npm_serve', filename='bootstrap/dist/js/bootstrap.bundle.min.js') }}">
+</script>
+<script>
+/* Global toast utility */
+function showToast(msg, type) {
+  var c = document.getElementById('toast-container');
+  if (!c) return;
+  var el = document.createElement('div');
+  el.className = 'toast-message' + (type ? ' ' + type : '');
+  var icons = { danger: 'bi-x-circle-fill', success: 'bi-check-circle-fill', warning: 'bi-exclamation-triangle-fill' };
+  var icon = icons[type] || 'bi-info-circle-fill';
+  el.innerHTML = '<i class="bi ' + icon + '"></i> ' + escapeHtml(msg);
+  c.appendChild(el);
+  setTimeout(function () { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(function () { el.remove(); }, 300); }, 3500);
+}
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  var d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
 </script>
 {% block scripts %}{% endblock %}
 </body>

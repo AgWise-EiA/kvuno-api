@@ -27,7 +27,7 @@
         renderSourceBars(s.conflicts_by_source || []);
       })
       .catch(function (err) {
-        console.error('Stats error:', err);
+        showToast('Failed to load stats: ' + err.message, 'danger');
       });
   }
 
