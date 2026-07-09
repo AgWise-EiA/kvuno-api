@@ -6,24 +6,36 @@
 <link rel="stylesheet" href="{{ url_for('npm_serve', filename='leaflet.markercluster/dist/MarkerCluster.Default.css') }}">
 <link rel="stylesheet" href="{{ url_for('npm_serve', filename='bootstrap-icons/font/bootstrap-icons.css') }}">
 <style>
-  #explore-map { height: 380px; border-radius: 8px; z-index: 0; }
+  #explore-map { height: 100%; min-height: 450px; border-radius: 8px; z-index: 0; }
   .filter-card .form-label { font-size: .8rem; margin-bottom: .15rem; font-weight: 500; }
   .filter-card .form-control, .filter-card .form-select { font-size: .85rem; }
-  .table-wrap { max-height: 420px; overflow-y: auto; }
+  .table-wrap { max-height: none; overflow-y: auto; flex: 1; }
   .table-wrap thead { position: sticky; top: 0; z-index: 1; }
   .col-sort { cursor: pointer; user-select: none; }
   .col-sort:hover { color: #1976d2; }
   .col-sort::after { content: ''; margin-left: .3rem; }
   .col-sort.asc::after { content: '▲'; font-size: .65rem; }
   .col-sort.desc::after { content: '▼'; font-size: .65rem; }
+
+  .map-col .card, .data-col .card { display: flex; flex-direction: column; }
+  .map-col .card-body, .data-col .card-body { flex: 1; display: flex; flex-direction: column; }
+  .map-col .card { flex: 1; }
+  .data-col .card { flex: 1; }
+  .data-col .card .table-wrap { flex: 1; }
+  .map-row { flex: 1; }
+  .map-row > [class*="col-"] { display: flex; }
+
+  @media (min-width: 992px) {
+    .map-row { min-height: calc(100vh - 280px); }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="vstack gap-3">
+<div class="vstack gap-2">
 
   <!-- Filters -->
-  <div class="card p-3 filter-card">
+  <div class="card p-2 filter-card">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
       <h2 class="h6 mb-0 me-2"><i class="bi bi-funnel"></i> Filters</h2>
       <button class="btn btn-sm btn-outline-secondary" id="clear-filters">Clear</button>
@@ -68,13 +80,13 @@
   </div>
 
   <!-- Map + Table side by side on large screens -->
-  <div class="row g-3">
-    <div class="col-12 col-lg-6">
+  <div class="row g-3 map-row">
+    <div class="col-12 col-lg-6 map-col">
       <div class="card p-2">
         <div id="explore-map"></div>
       </div>
     </div>
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6 data-col">
       <div class="card p-3">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <h2 class="h6 mb-0"><i class="bi bi-table"></i> Data</h2>

@@ -10,9 +10,9 @@
     {% block head_extra %}{% endblock %}
 </head>
 <body class="bg-light" {% block body_attrs %}{% endblock %}>
-<nav class="navbar navbar-expand-sm navbar-dark bg-dark mb-4">
-    <div class="container-fluid" style="max-width:960px;">
-        <a class="navbar-brand fw-semibold" href="/ui/jobs">kvuno</a>
+<nav class="navbar navbar-expand-sm navbar-dark bg-dark mb-3">
+    <div class="container-fluid px-3 px-xl-5">
+        <a class="navbar-brand fw-semibold py-1" href="/ui/jobs">kvuno</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav-main">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -38,7 +38,7 @@
     </div>
 </nav>
 
-<main class="container-fluid py-2 fade-in" style="max-width:960px;">
+<main class="container-fluid px-3 px-xl-5 py-2 fade-in" style="min-height:calc(100vh - 120px);">
     {% block content %}{% endblock %}
 </main>
 

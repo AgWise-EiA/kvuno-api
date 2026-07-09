@@ -144,8 +144,8 @@ body {
 .table tbody tr:last-child { border-bottom: none; }
 .table td { padding: .5rem; vertical-align: middle; }
 
-/* sticky table header shadow */
-.table-wrap { max-height: 420px; overflow-y: auto; border-radius: var(--radius-sm); }
+/* sticky table header shadow — height set per-page via inline styles */
+.table-wrap { overflow-y: auto; border-radius: var(--radius-sm); }
 .table-wrap thead { position: sticky; top: 0; z-index: 2; }
 .table-wrap thead::after {
   content: '';
