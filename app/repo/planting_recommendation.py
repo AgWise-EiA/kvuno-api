@@ -111,14 +111,11 @@ class PlantingRecommendationRepo:
     def get_clusters(self, filters: PlantingDataFilter, zoom: int,
                      ne_lat: float, ne_lng: float,
                      sw_lat: float, sw_lng: float) -> list[dict]:
-        session = self._get_session()
-
         grid_size = max(0.0001, 360.0 / (2 ** max(zoom, 1)))
         bounds = func.ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)
 
         # Base query: filters + spatial bounding box — no ORDER BY (conflicts with GROUP BY)
-        query = session.query(PlantingRecommendation)
-        query = self._apply_filters(query, filters)
+        query = self._apply_filters(filters)
         query = query.filter(
             PlantingRecommendation.coordinates.intersects(bounds)
         ).filter(
