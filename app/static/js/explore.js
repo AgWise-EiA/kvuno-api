@@ -232,8 +232,9 @@
     }, 350);
   }
 
+  var selectFilters = { country: 1, province: 1, variety: 1, season: 1 };
   Object.keys(filters).forEach(function (key) {
-    filters[key].addEventListener('input', onFilterInput);
+    filters[key].addEventListener(selectFilters[key] ? 'change' : 'input', onFilterInput);
   });
 
   clearBtn.addEventListener('click', function () {
@@ -310,6 +311,30 @@
       .catch(function (err) { showToast('Heatmap error: ' + err.message, 'danger'); });
   }
 
+  // ── Load filter options ─────────────────────────────────────
+
+  function loadFilterOptions() {
+    fetch('/api/v1/planting-data/filters')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) return;
+        var map = { country: 'f-country', province: 'f-province', variety: 'f-variety', season_type: 'f-season' };
+        Object.keys(map).forEach(function (key) {
+          var sel = document.getElementById(map[key]);
+          if (!sel) return;
+          var vals = data[key] || [];
+          sel.innerHTML = '<option value="">All</option>';
+          vals.forEach(function (v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            sel.appendChild(opt);
+          });
+        });
+      })
+      .catch(function () {});
+  }
+
   // ── Init ────────────────────────────────────────────────────
 
   function escHtml(s) {
@@ -319,6 +344,7 @@
     return d.innerHTML;
   }
 
+  loadFilterOptions();
   paramsFromUrl();
   fetchData();
 

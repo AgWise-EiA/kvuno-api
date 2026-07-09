@@ -67,6 +67,19 @@ def get_data(query: PlantingDataFilter):
         return {'error': str(e)}, 500
 
 
+FILTER_COLUMNS = ['country', 'province', 'variety', 'season_type']
+
+
+@api.get('/filters')
+def get_filter_options():
+    try:
+        values = repo.get_distinct_values(FILTER_COLUMNS)
+        return values, 200
+    except Exception as e:
+        logger.error(f"Error fetching filter options: {e}")
+        return {'error': str(e)}, 500
+
+
 @api.get('/coordinates',
          responses={200: CoordinatesResponse, 401: Unauthorized})
 def get_coordinates(query: PlantingDataFilter):

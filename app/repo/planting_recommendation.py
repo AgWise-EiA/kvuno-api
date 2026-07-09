@@ -139,6 +139,27 @@ class PlantingRecommendationRepo:
             self.logger.error(f"Failed to find PlantingRecommendation with checksum {check_sum}: {e}")
             raise
 
+    def get_distinct_values(self, columns: list[str]) -> dict[str, list]:
+        session = self._get_session()
+        result = {}
+        for col in columns:
+            try:
+                col_attr = getattr(PlantingRecommendation, col, None)
+                if col_attr is None:
+                    continue
+                values = (
+                    session.query(col_attr)
+                    .filter(col_attr.isnot(None))
+                    .distinct()
+                    .order_by(col_attr)
+                    .all()
+                )
+                result[col] = [v[0] for v in values]
+            except Exception as e:
+                self.logger.error(f"Failed to get distinct values for {col}: {e}")
+                result[col] = []
+        return result
+
     def _log_conflicts(self, session, mappings, inserted_count):
         if inserted_count == len(mappings):
             return
