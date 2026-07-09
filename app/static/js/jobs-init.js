@@ -1,30 +1,68 @@
 var source = new EventSource('/ui/jobs/events');
+var allJobs = [];
+var activeFilter = 'all';
+var searchTerm = '';
+
+document.getElementById('status-tabs').addEventListener('click', function (e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#status-tabs .btn').forEach(function (b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  renderJobs(allJobs);
+});
+
+document.getElementById('job-search').addEventListener('input', function () {
+  searchTerm = this.value.toLowerCase().trim();
+  renderJobs(allJobs);
+});
+
 source.addEventListener('message', function (e) {
   var data = JSON.parse(e.data);
-  renderJobs(data.jobs || [], data.counts || {});
+  allJobs = data.jobs || [];
+  renderJobs(allJobs);
   highlightJob();
 });
 
-function renderJobs(jobs, counts) {
+function filtered(jobs) {
+  return jobs.filter(function (j) {
+    if (activeFilter !== 'all' && j.status !== activeFilter) return false;
+    if (searchTerm) {
+      var name = (j.original_name || j.file || '').toLowerCase();
+      if (name.indexOf(searchTerm) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function countByStatus(jobs) {
+  var c = { completed: 0, processing: 0, error: 0, unknown: 0 };
+  jobs.forEach(function (j) { c[j.status] = (c[j.status] || 0) + 1; });
+  return c;
+}
+
+function renderJobs(jobs) {
   var body = document.getElementById('jobs-body');
   if (!body) return;
 
-  if (!jobs.length) {
-    body.innerHTML = '<div class="text-center py-5"><p class="text-muted mb-2">No jobs yet.</p><a href="/ui/upload" class="btn btn-outline-primary btn-sm">Upload a file</a></div>';
+  var visible = filtered(jobs);
+  var counts = countByStatus(jobs);
+
+  if (!visible.length) {
+    body.innerHTML = '<div class="text-center py-5"><p class="text-muted mb-2">No matching jobs.</p></div>';
     return;
   }
 
-  var summary = '<div class="d-flex gap-3 mb-3 small">'
+  var summary = '<div class="d-flex gap-3 mb-3 small flex-wrap align-items-center">'
     + '<span><span class="badge bg-success rounded-pill">' + (counts.completed || 0) + '</span> completed</span>'
     + '<span><span class="badge bg-primary rounded-pill">' + (counts.processing || 0) + '</span> processing</span>'
     + '<span><span class="badge bg-danger rounded-pill">' + (counts.error || 0) + '</span> failed</span>'
-    + '<span class="text-muted ms-auto">' + jobs.length + ' total</span>'
+    + '<span class="text-muted ms-auto">' + visible.length + ' / ' + jobs.length + ' shown</span>'
     + '</div>';
 
-  var rows = jobs.map(function (j) {
+  var rows = visible.map(function (j) {
     var total = j.total || 1;
     var pct = total > 0 ? Math.round((j.current || 0) / total * 100) : 0;
-
     var badge = STATUS[j.status] || STATUS.unknown;
     var anim = j.status === 'processing' ? ' progress-bar-striped progress-bar-animated' : '';
     var barW = j.status === 'completed' ? '100' : pct;
@@ -40,14 +78,38 @@ function renderJobs(jobs, counts) {
       + '<td style="min-width:140px;"><div class="progress" style="height:6px;"><div class="progress-bar' + anim + '" role="progressbar" style="width:' + barW + '%;background-color:' + badge.bar + '"></div></div></td>'
       + '<td class="small text-muted">' + escHtml(j.message || '') + '</td>'
       + '<td class="small text-muted text-nowrap">' + time + '</td>'
+      + (j.status === 'error' ? '<td><button class="btn btn-outline-danger btn-sm retry-btn" data-file="' + escHtml(j.file) + '">Retry</button></td>' : '<td></td>')
       + '</tr>';
   }).join('');
 
   body.innerHTML = summary
     + '<div class="table-responsive"><table class="table table-hover align-middle mb-0">'
-    + '<thead class="table-light"><tr><th>File</th><th>Status</th><th>Rows</th><th>Progress</th><th>Message</th><th>Updated</th></tr></thead>'
+    + '<thead class="table-light"><tr><th>File</th><th>Status</th><th>Rows</th><th>Progress</th><th>Message</th><th>Updated</th><th></th></tr></thead>'
     + '<tbody>' + rows + '</tbody>'
     + '</table></div>';
+
+  document.querySelectorAll('.retry-btn').forEach(function (btn) {
+    btn.addEventListener('click', retryJob);
+  });
+}
+
+function retryJob(e) {
+  var file = e.target.dataset.file;
+  if (!file) return;
+  e.target.disabled = true;
+  e.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  fetch('/ui/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file: file }),
+  }).then(function (r) { return r.json(); }).then(function (data) {
+    if (data.error) { alert('Retry failed: ' + data.error); }
+    e.target.disabled = false;
+    e.target.textContent = 'Retry';
+  }).catch(function () {
+    e.target.disabled = false;
+    e.target.textContent = 'Retry';
+  });
 }
 
 var STATUS = {
