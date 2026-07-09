@@ -6,6 +6,7 @@ Supports authenticated downloads with session cookies, bearer tokens, and custom
 import os
 import time
 from typing import Optional
+from urllib.parse import urlparse, urlunparse, unquote
 
 import requests
 
@@ -15,6 +16,16 @@ _shared_logger = SharedLogger()
 _logger = _shared_logger.get_logger()
 
 DEFAULT_DATA_DIR = os.path.join("static", "data")
+
+
+def sanitize_url(url: str) -> str:
+    """Strip query string and credentials from a URL for safe logging."""
+    parsed = urlparse(url)
+    netloc = parsed.hostname or ''
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    cleaned = parsed._replace(query='', netloc=netloc)
+    return urlunparse(cleaned)
 
 
 class RDSDownloader:
@@ -49,8 +60,6 @@ class RDSDownloader:
         Returns:
             Absolute path to the downloaded file
         """
-        from urllib.parse import urlparse, unquote
-
         start = time.time()
         parsed = urlparse(url)
         name = filename or os.path.basename(unquote(parsed.path))
@@ -58,7 +67,7 @@ class RDSDownloader:
             name += ".RDS"
         dest = os.path.abspath(os.path.join(self.data_dir, name))
 
-        self.logger.info(f"Downloading {url}")
+        self.logger.info(f"Downloading {sanitize_url(url)}")
         self.logger.info(f"Destination: {dest}")
 
         try:
@@ -81,7 +90,7 @@ class RDSDownloader:
             return dest
 
         except requests.RequestException as e:
-            self.logger.error(f"Download failed for {url}: {e}")
+            self.logger.error(f"Download failed for {sanitize_url(url)}: {e}")
             if os.path.exists(dest):
                 os.remove(dest)
             raise

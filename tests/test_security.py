@@ -33,6 +33,28 @@ class TestUploadSizeEnforcement:
         assert max_mb == 20
 
 
+class TestUrlSanitization:
+    def test_strips_query_string(self):
+        from app.utils.downloader import sanitize_url
+        result = sanitize_url("https://example.com/file.RDS?token=secret&key=value")
+        assert "token=secret" not in result
+        assert "key=value" not in result
+        assert result == "https://example.com/file.RDS"
+
+    def test_strips_credentials(self):
+        from app.utils.downloader import sanitize_url
+        result = sanitize_url("https://user:pass@example.com/file.RDS")
+        assert "user:pass" not in result
+        assert "user" not in result
+        assert "pass" not in result
+        assert result.startswith("https://example.com/file.RDS")
+
+    def test_leaves_path_intact(self):
+        from app.utils.downloader import sanitize_url
+        result = sanitize_url("https://example.com/data/file.RDS")
+        assert result == "https://example.com/data/file.RDS"
+
+
 class TestPathSafety:
     def test_resolve_under_data_dir(self):
         from pathlib import Path
