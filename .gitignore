@@ -12,3 +12,4 @@ kvuno.db.journal
 node_modules/
 .pnpm-store/
 
+.aider*
