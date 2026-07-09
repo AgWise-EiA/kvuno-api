@@ -88,6 +88,15 @@ def _read_columns(path: str, ext: str):
     return data[None].columns.tolist()
 
 
+def _read_rows(path: str, ext: str, n: int = 5):
+    if ext == '.parquet':
+        df = pd.read_parquet(path, nrows=n)
+    else:
+        data = pyreadr.read_r(path)
+        df = data[None].head(n)
+    return json.loads(df.to_json(orient='records'))
+
+
 def _chunk_path(identifier: str, number: int):
     return os.path.join(CHUNK_DIR, identifier, str(number))
 
@@ -245,11 +254,12 @@ def register_app_routes(app):
 
         try:
             columns = _read_columns(dest, ext)
+            rows = _read_rows(dest, ext)
         except Exception as e:
             os.remove(dest)
             return jsonify(error=f"Failed to read file: {e}"), 400
 
-        return jsonify(file=unique_name, columns=columns)
+        return jsonify(file=unique_name, columns=columns, rows=rows)
 
     @app.route('/ui/process', methods=['POST'])
     def upload_ui_process():
