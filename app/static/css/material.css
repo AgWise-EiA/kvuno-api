@@ -215,7 +215,10 @@ body {
 .skeleton-stat { height: 2.5rem; width: 80px; border-radius: var(--radius-sm); }
 
 /* ── Main content area ───────────────────────────────────── */
-.main-content { min-height: calc(100vh - 120px); }
+.main-content {
+  /*min-height: calc(100vh - 120px); */
+  max-width: 90%;
+}
 
 /* ── Job search input ────────────────────────────────────── */
 .job-search-input { max-width: 260px; }
