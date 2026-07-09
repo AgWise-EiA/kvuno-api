@@ -20,6 +20,7 @@ information).
 | View data on a map | Weekly | ❌ No spatial visualization |
 | Export data for offline analysis | Weekly | ❌ No CSV/Parquet download |
 | Understand data quality | Weekly | ❌ No conflict/duplicate dashboard |
+| Understand data quality | Weekly | ✅ Quality dashboard with conflicts, duplicates, coverage stats |
 | Test API queries interactively | Monthly | ❌ Swagger doc but no live query builder |
 
 ---
@@ -51,16 +52,21 @@ information).
 - No per-job detail view (logs, row count, timing)
 - No retry action for failed jobs
 - No history beyond what's in `.progress.json` files
-- No data quality feedback (conflicts found)
 
-### Missing page: Data Explorer
 
-**What does not exist:**
-- No interactive data table for ingested planting data
-- No filter controls (country, variety, season, spatial)
-- No map view of data points
-- No export/download
-- No API query builder
+### Page: Quality (`/ui/quality`)
+
+**What exists (Phase 3):**
+- Summary stat cards (total records, conflicts, files, spatial coverage %)
+- Paginated conflicts table with country/source/search filters
+- Duplicates viewer grouped by unique record key
+- Source breakdown with bar visualization
+- Spatial coverage heatmap on explore page
+
+**Gaps:**
+- No per-job conflict detail linking back to the source file
+- No data quality trend/history over time
+- No automated quality checks (null counts, outlier detection)
 
 ---
 
@@ -245,11 +251,11 @@ Data scientists are not frontend engineers — the UI should be:
 - ⚠️ Export uses client-side Blob (`per_page=100000`) — will crash the tab on datasets >10k rows
 - ⚠️ Filter inputs are plain text fields — users must guess valid country/variety/season values
 
-### Phase 3 — Data Quality (future)
-- ⬜ Conflicts dashboard
-- ⬜ Per-file processing stats
-- ⬜ Spatial coverage heatmap
-- ⬜ Duplicate detection viewer
+### Phase 3 — Data Quality ✅
+- ✅ Conflicts dashboard (`/ui/quality`) with stat cards, paginated conflict table, source breakdown, country grouping
+- ✅ Per-file processing stats (summary cards: total records, conflicts, files, spatial coverage %)
+- ✅ Spatial coverage heatmap (Leaflet.heat overlay toggle on explore page)
+- ✅ Duplicate detection viewer (grouped by unique key on Quality > Duplicates tab)
 
 ---
 
@@ -261,9 +267,13 @@ GET  /ui/upload           → upload page
 GET  /ui/jobs             → jobs page
 GET  /ui/jobs/data        → JSON: job list
 GET  /ui/jobs/events      → SSE: live updates
-GET  /ui/explore          → data explorer page      ← NEW
-GET  /api/v1/planting-data → JSON: filtered data    ← exists
-GET  /api/v1/planting-data/export  → CSV/Parquet    ← NEW
+GET  /ui/explore          → data explorer page
+GET  /ui/quality          → data quality dashboard
+GET  /api/v1/planting-data      → JSON: filtered data
+GET  /api/v1/planting-data/coordinates  → JSON: lat/lon pairs for heatmap
+GET  /api/v1/quality/stats       → JSON: summary statistics
+GET  /api/v1/quality/conflicts   → JSON: paginated conflict list
+GET  /api/v1/planting-data/export  → CSV/Parquet (future)
 ```
 
 ---
