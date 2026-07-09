@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!--suppress HtmlUnknownAttribute, HtmlUnknownTarget -->
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -9,38 +10,38 @@
     {% block head_extra %}{% endblock %}
 </head>
 <body class="bg-light" {% block body_attrs %}{% endblock %}>
-    <nav class="navbar navbar-expand-sm navbar-dark bg-dark mb-4">
-        <div class="container-fluid" style="max-width:960px;">
-            <a class="navbar-brand fw-semibold" href="/ui/jobs">kvuno</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav-main">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="nav-main">
-                <ul class="navbar-nav ms-auto gap-2">
-                    <li class="nav-item">
-                        <a class="nav-link{% if active_nav == 'upload' %} active{% endif %}" href="/ui/upload">Upload</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link{% if active_nav == 'jobs' %} active{% endif %}" href="/ui/jobs">Jobs</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/openapi" target="_blank">API docs</a>
-                    </li>
-                </ul>
-            </div>
+<nav class="navbar navbar-expand-sm navbar-dark bg-dark mb-4">
+    <div class="container-fluid" style="max-width:960px;">
+        <a class="navbar-brand fw-semibold" href="/ui/jobs">kvuno</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav-main">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav-main">
+            <ul class="navbar-nav ms-auto gap-2">
+                <li class="nav-item">
+                    <a class="nav-link{% if active_nav == 'upload' %} active{% endif %}" href="/ui/upload">Upload</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{% if active_nav == 'jobs' %} active{% endif %}" href="/ui/jobs">Jobs</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/openapi" target="_blank">API docs</a>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <main class="container-fluid py-2" style="max-width:960px;">
-        {% block content %}{% endblock %}
-    </main>
+<main class="container-fluid py-2" style="max-width:960px;">
+    {% block content %}{% endblock %}
+</main>
 
-    <footer class="text-center text-muted small py-4">
-        kvuno &middot; <a href="https://agwise.cgiar.org" class="text-reset text-decoration-none" target="_blank">AgWise</a>
-    </footer>
+<footer class="text-center text-muted small py-4">
+    kvuno &middot; <a href="https://agwise.cgiar.org" class="text-reset text-decoration-none" target="_blank">AgWise</a>
+</footer>
 
-    <script src="{{ url_for('npm_serve', filename='bootstrap/dist/js/bootstrap.bundle.min.js') }}">
-    </script>
-    {% block scripts %}{% endblock %}
+<script src="{{ url_for('npm_serve', filename='bootstrap/dist/js/bootstrap.bundle.min.js') }}">
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
