@@ -2,6 +2,7 @@
   "name": "kvuno",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@7.24.3",
   "scripts": {
     "build": "echo 'No build step needed — Bootstrap served from pnpm'"
   },
