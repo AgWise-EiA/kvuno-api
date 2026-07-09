@@ -232,13 +232,13 @@ Data scientists are not frontend engineers — the UI should be:
 - ✅ Job detail modal with retry action
 - ✅ Status filter tabs and filename search on Jobs page
 
-### Phase 2 — Data Explorer (next)
-- ⬜ New route: `/ui/explore`
-- ⬜ Filter form (country, variety, season, spatial)
-- ⬜ Paginated data table with sort
-- ⬜ CSV/JSON export
-- ⬜ Map view with Leaflet
-- ⬜ Shareable URL with query params
+### Phase 2 — Data Explorer ✅
+- ✅ New route: `/ui/explore`
+- ✅ Filter form (country, province, variety, season, date, option, spatial radius)
+- ✅ Paginated data table with column sort
+- ✅ CSV / JSON export of filtered results
+- ✅ Map view with Leaflet (clustered circle markers)
+- ✅ Shareable URL with query params (filters, page, sort persisted)
 
 ### Phase 3 — Data Quality (future)
 - ⬜ Conflicts dashboard
