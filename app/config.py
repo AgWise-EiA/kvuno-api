@@ -6,23 +6,10 @@ APP_VERSION="1.0.0"
 API_PREFIX = "/api"
 API_VERSION = "/v1"
 
+# ── Database ───────────────────────────────────────────────────
 
 def build_db_url() -> str:
-    """
-    Build a database URL from individual environment variables.
-
-    If DB_URL is set, it is returned as-is (backwards compatibility).
-
-    Otherwise the URL is built from:
-      DB_DRIVER (default: postgresql)
-      DB_HOST   (default: 127.0.0.1)
-      DB_PORT   (default: 5432)
-      DB_USER   (default: postgres)
-      DB_PASSWORD (default: postgres)
-      DB_NAME   (default: agwise_api)
-
-    For SQLite only DB_NAME is used (default: kvuno.db).
-    """
+    """Build a database URL from individual environment variables."""
     url = os.getenv("DB_URL")
     if url:
         return url
@@ -39,3 +26,37 @@ def build_db_url() -> str:
     name = os.getenv("DB_NAME", "agwise_api")
 
     return f"{driver}://{user}:{password}@{host}:{port}/{name}"
+
+
+# ── Celery / Redis ─────────────────────────────────────────────
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_TASK_DEFAULT_QUEUE = os.getenv('CELERY_TASK_DEFAULT_QUEUE', 'kvuno')
+CELERY_TASK_MAX_RETRIES = int(os.getenv('CELERY_TASK_MAX_RETRIES', '10'))
+CELERY_TASK_RETRY_DELAY = int(os.getenv('CELERY_TASK_RETRY_DELAY', '60'))
+
+
+def celery_broker_available() -> bool:
+    """Check if the Redis/Celery broker host:port is reachable."""
+    from urllib.parse import urlparse
+    import socket
+    parts = urlparse(CELERY_BROKER_URL)
+    host = parts.hostname or 'localhost'
+    port = parts.port or 6379
+    try:
+        s = socket.create_connection((host, port), timeout=2)
+        s.close()
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+# ── Housekeeping / ingestion ───────────────────────────────────
+
+HOUSEKEEPING_ENABLED = os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true'
+HOUSEKEEPING_DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join('static', 'data'))
+HOUSEKEEPING_BATCH_SIZE = int(os.getenv('HOUSEKEEPING_BATCH_SIZE', '2000'))
+HOUSEKEEPING_CHUNK_SIZE = int(os.getenv('HOUSEKEEPING_CHUNK_SIZE', '5000'))
+HOUSEKEEPING_CHECKPOINT_INTERVAL = int(os.getenv('HOUSEKEEPING_CHECKPOINT_INTERVAL', '50'))
+HOUSEKEEPING_MAX_WORKERS = int(os.getenv('HOUSEKEEPING_MAX_WORKERS', '1'))

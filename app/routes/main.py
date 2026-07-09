@@ -13,10 +13,11 @@ from werkzeug.utils import safe_join
 
 from pathlib import Path
 
+from app.config import HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED
 from app.models.database_conn import MyDb
 from app.models.kvuno import PlantingRecommendation
 
-DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join("static", "data"))
+DATA_DIR = HOUSEKEEPING_DATA_DIR
 ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
 
 _EXCLUDED = {'id', 'check_sum', 'coordinates', 'created_at', 'updated_at'}
@@ -282,7 +283,7 @@ def register_app_routes(app):
         with open(mapping_path, 'w') as f:
             json.dump(column_map, f)
 
-        if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
+        if HOUSEKEEPING_ENABLED:
             from app.services.housekeeper import process_file_async
             process_file_async(file_path=file_path)
             return jsonify(id=file_name, message="Processing started")

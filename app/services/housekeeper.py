@@ -21,6 +21,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from tqdm import tqdm
 
 from app import create_app
+from app.config import (
+    CELERY_BROKER_URL,
+    HOUSEKEEPING_BATCH_SIZE,
+    HOUSEKEEPING_CHECKPOINT_INTERVAL,
+    HOUSEKEEPING_CHUNK_SIZE,
+    HOUSEKEEPING_DATA_DIR,
+    HOUSEKEEPING_MAX_WORKERS,
+    celery_broker_available,
+)
 from app.dto.planting_recommendation import PlantingRecommendationCreate
 from app.models.database_conn import MyDb
 from app.models.kvuno import PlantingRecommendation, ImportConflict
@@ -36,7 +45,7 @@ shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
 
 _app = None
-DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join("static", "data"))
+DATA_DIR = HOUSEKEEPING_DATA_DIR
 
 
 # ── App management ─────────────────────────────────────────────
@@ -57,16 +66,12 @@ def set_app(app_instance):
 # ── Settings ───────────────────────────────────────────────────
 
 def housekeeping_settings() -> dict:
-    """Read housekeeping parameters from environment variables.
-
-    Returns a dict suitable for passing as ``**kwargs`` to
-    :func:`load_rds_to_db` or :func:`process_file`.
-    """
+    """Return current housekeeping parameters (read from centralized config)."""
     return {
-        'batch_size': int(os.getenv('HOUSEKEEPING_BATCH_SIZE', '2000')),
-        'chunk_size': int(os.getenv('HOUSEKEEPING_CHUNK_SIZE', '5000')),
-        'checkpoint_interval': int(os.getenv('HOUSEKEEPING_CHECKPOINT_INTERVAL', '50')),
-        'max_workers': int(os.getenv('HOUSEKEEPING_MAX_WORKERS', '1')),
+        'batch_size': HOUSEKEEPING_BATCH_SIZE,
+        'chunk_size': HOUSEKEEPING_CHUNK_SIZE,
+        'checkpoint_interval': HOUSEKEEPING_CHECKPOINT_INTERVAL,
+        'max_workers': HOUSEKEEPING_MAX_WORKERS,
     }
 
 
@@ -595,27 +600,12 @@ def watch_directory(
 
 # ── Celery helpers ─────────────────────────────────────────────
 
-def _celery_available() -> bool:
-    """Check if Redis/Celery broker is reachable (non-blocking)."""
-    import socket
-    from urllib.parse import urlparse
-    url = urlparse(os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
-    host = url.hostname or 'localhost'
-    port = url.port or 6379
-    try:
-        s = socket.create_connection((host, port), timeout=2)
-        s.close()
-        return True
-    except (OSError, ValueError):
-        return False
-
-
 def _enqueue_or_warn(task, **kwargs):
     """Enqueue a Celery task, or log a warning if the broker is unreachable."""
-    if not _celery_available():
+    if not celery_broker_available():
         logger.warning(
             f"Cannot enqueue {task.__name__} — Redis at "
-            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')} "
+            f"{CELERY_BROKER_URL} "
             f"is not reachable. Start Redis or disable HOUSEKEEPING_ENABLED."
         )
         return
@@ -637,7 +627,7 @@ def _enqueue_or_warn(task, **kwargs):
         logger.warning(
             f"Timed out enqueuing {task.__name__} — "
             f"Kombu/Celery cannot connect to Redis at "
-            f"{os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')}. "
+            f"{CELERY_BROKER_URL}. "
             f"Run the worker in Docker for housekeeping, or set HOUSEKEEPING_ENABLED=false."
         )
         return

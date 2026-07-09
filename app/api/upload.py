@@ -9,7 +9,7 @@ from flask_openapi3 import Tag, APIBlueprint
 from pydantic import BaseModel, Field
 
 from app.cache import invalidate_cache
-from app.config import API_PREFIX, API_VERSION
+from app.config import API_PREFIX, API_VERSION, HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED
 from app.dto.upload import UploadResponse
 
 __bp__ = "/data"
@@ -18,7 +18,7 @@ url_prefix = API_PREFIX + API_VERSION + __bp__
 tag = Tag(name="ingestion", description="File upload and data ingestion")
 api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
 
-DATA_DIR = os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join("static", "data"))
+DATA_DIR = HOUSEKEEPING_DATA_DIR
 
 ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
 
@@ -57,12 +57,12 @@ def _process_uploaded_file(f):
     for prefix in ('filters', 'coordinates', 'clusters'):
         invalidate_cache(prefix)
 
-    if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
+    if HOUSEKEEPING_ENABLED:
         from app.services.housekeeper import process_file_async
         process_file_async(file_path=dest)
 
     return UploadResponse(
-        message="File accepted for processing" if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true'
+        message="File accepted for processing" if HOUSEKEEPING_ENABLED
                 else "File saved. Set HOUSEKEEPING_ENABLED=true and start a Celery worker for background processing.",
         file=unique_name,
         columns=columns,

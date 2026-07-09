@@ -13,13 +13,13 @@ import shutil
 
 from app.models.database_conn import MyDb
 from app.routes.main import register_app_routes
-from app.config import build_db_url, APP_NAME, APP_VERSION
+from app.config import build_db_url, APP_NAME, APP_VERSION, HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED
 
 # Load environment variables from .env file
 load_dotenv()
 
 def _cleanup_temp_files():
-    data_dir = Path(os.getenv('HOUSEKEEPING_DATA_DIR', os.path.join('static', 'data')))
+    data_dir = Path(HOUSEKEEPING_DATA_DIR)
     if not data_dir.is_dir():
         return
 
@@ -180,7 +180,7 @@ def create_app():
         _cleanup_temp_files()
 
     # Enqueue background processing of any unprocessed files via Celery
-    if os.getenv('HOUSEKEEPING_ENABLED', 'false').lower() == 'true':
+    if HOUSEKEEPING_ENABLED:
         from app.services.housekeeper import process_pending
         process_pending()
 
