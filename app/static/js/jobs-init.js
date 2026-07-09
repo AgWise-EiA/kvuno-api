@@ -71,7 +71,7 @@ function renderJobs(jobs) {
     var time = j.mtime ? new Date(j.mtime * 1000).toLocaleString() : '—';
     var name = j.original_name || j.file;
 
-    return '<tr>'
+    return '<tr class="job-row" data-file="' + escHtml(j.file) + '" style="cursor:pointer;">'
       + '<td><span class="fw-medium small" title="' + escHtml(j.file) + '">' + escHtml(name) + '</span></td>'
       + '<td><span class="badge rounded-pill bg-' + badge.color + '">' + badge.label + '</span></td>'
       + '<td class="text-nowrap small text-muted">' + fmtCur + ' / ' + fmtTot + '</td>'
@@ -90,6 +90,12 @@ function renderJobs(jobs) {
 
   document.querySelectorAll('.retry-btn').forEach(function (btn) {
     btn.addEventListener('click', retryJob);
+  });
+  document.querySelectorAll('.job-row').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('.retry-btn')) return;
+      showJobDetail(this.dataset.file);
+    });
   });
 }
 
@@ -110,6 +116,45 @@ function retryJob(e) {
     e.target.disabled = false;
     e.target.textContent = 'Retry';
   });
+}
+
+function showJobDetail(file) {
+  var modal = new bootstrap.Modal(document.getElementById('job-detail-modal'));
+  document.getElementById('detail-title').textContent = file;
+  var body = document.getElementById('detail-body');
+  body.innerHTML = '<div class="text-center text-muted py-4">Loading…</div>';
+  document.getElementById('detail-retry-btn').classList.add('d-none');
+  modal.show();
+
+  fetch('/ui/progress/' + encodeURIComponent(file))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var time = data.mtime ? new Date((data.mtime || Date.now() / 1000) * 1000).toLocaleString() : '—';
+      var html = '<dl class="row mb-0">'
+        + '<dt class="col-sm-4">Status</dt><dd class="col-sm-8"><span class="badge rounded-pill bg-'
+        + (STATUS[data.status] || STATUS.unknown).color + '">' + (STATUS[data.status] || STATUS.unknown).label + '</span></dd>'
+        + '<dt class="col-sm-4">Rows processed</dt><dd class="col-sm-8">' + (data.current || 0).toLocaleString() + ' / ' + (data.total || 0).toLocaleString() + '</dd>'
+        + '<dt class="col-sm-4">Progress</dt><dd class="col-sm-8"><div class="progress" style="height:6px;max-width:200px;"><div class="progress-bar" style="width:' + (data.total > 0 ? Math.round((data.current || 0) / data.total * 100) : 0) + '%"></div></div></dd>'
+        + '<dt class="col-sm-4">Message</dt><dd class="col-sm-8">' + escHtml(data.message || '—') + '</dd>'
+        + '<dt class="col-sm-4">Last updated</dt><dd class="col-sm-8">' + time + '</dd>'
+        + '</dl>';
+      body.innerHTML = html;
+      if (data.status === 'error') {
+        var btn = document.getElementById('detail-retry-btn');
+        btn.classList.remove('d-none');
+        btn.onclick = function () {
+          btn.disabled = true;
+          fetch('/ui/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: file }),
+          }).then(function () { modal.hide(); }).catch(function () { btn.disabled = false; });
+        };
+      }
+    })
+    .catch(function () {
+      body.innerHTML = '<div class="alert alert-danger mb-0">Failed to load job details.</div>';
+    });
 }
 
 var STATUS = {

@@ -15,6 +15,25 @@
 <div id="jobs-body">
   <p class="text-muted">Loading…</p>
 </div>
+
+<!-- Detail modal -->
+<div class="modal fade" id="job-detail-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detail-title">Job details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detail-body">
+        <div class="text-center text-muted py-4">Loading…</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger btn-sm d-none" id="detail-retry-btn">Retry</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
