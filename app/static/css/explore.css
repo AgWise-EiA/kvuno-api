@@ -2,7 +2,8 @@
 
 .explore-map {
   height: 100%;
-  min-height: 450px;
+  min-height: 250px;
+  max-height: calc(100vh - 340px);
   border-radius: 8px;
   z-index: 0;
 }
@@ -15,7 +16,11 @@
 .filter-card .form-control,
 .filter-card .form-select { font-size: .85rem; }
 
-.table-wrap { max-height: none; overflow-y: auto; flex: 1; }
+.table-wrap {
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(100vh - 340px);
+}
 .table-wrap thead { position: sticky; top: 0; z-index: 1; }
 
 .col-sort { cursor: pointer; user-select: none; }
@@ -32,10 +37,10 @@
 .data-col .card { display: flex; flex-direction: column; }
 .explore-map-col .card { flex: 1; }
 .data-col .card { flex: 1; }
-.data-col .card .table-wrap { flex: 1; }
+.data-col .card .table-wrap { flex: 1; min-height: 0; }
 .map-row { flex: 1; }
 .map-row > [class*="col-"] { display: flex; }
 
 @media (min-width: 992px) {
-  .map-row { min-height: calc(100vh - 280px); }
+  .map-row { max-height: calc(100vh - 260px); }
 }
