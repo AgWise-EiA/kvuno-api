@@ -1,9 +1,13 @@
 /* ── Explore page — map + table ──────────────────────────── */
 
+:root {
+  --explore-content-height: calc(100vh - 340px);
+}
+
 .explore-map {
   height: 100%;
   min-height: 250px;
-  max-height: calc(100vh - 340px);
+  max-height: var(--explore-content-height);
   border-radius: 8px;
   z-index: 0;
 }
@@ -19,7 +23,7 @@
 .table-wrap {
   overflow-y: auto;
   flex: 1;
-  max-height: calc(100vh - 340px);
+  max-height: var(--explore-content-height);
 }
 .table-wrap thead { position: sticky; top: 0; z-index: 1; }
 
@@ -40,7 +44,3 @@
 .data-col .card .table-wrap { flex: 1; min-height: 0; }
 .map-row { flex: 1; }
 .map-row > [class*="col-"] { display: flex; }
-
-@media (min-width: 992px) {
-  .map-row { max-height: calc(100vh - 260px); }
-}
