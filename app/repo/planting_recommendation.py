@@ -105,6 +105,38 @@ class PlantingRecommendationRepo:
         )
         return query.all()
 
+    def get_clusters(self, filters: PlantingDataFilter, zoom: int,
+                     ne_lat: float, ne_lng: float,
+                     sw_lat: float, sw_lng: float) -> list[dict]:
+        from geoalchemy2.functions import ST_X, ST_Y
+        session = self._get_session()
+
+        grid_size = max(0.001, 360.0 / (2 ** max(zoom, 1)))
+        bounds = func.ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)
+
+        # Apply filters + spatial bounding box
+        query = self.get_filtered_data(filters)
+        query = query.filter(
+            PlantingRecommendation.coordinates.intersects(bounds)
+        ).filter(
+            PlantingRecommendation.lat.isnot(None),
+            PlantingRecommendation.lon.isnot(None),
+        )
+
+        # Group by grid cell and return center + count
+        grid = func.ST_SnapToGrid(PlantingRecommendation.coordinates, grid_size)
+        cols = query.with_entities(
+            func.avg(PlantingRecommendation.lat).label('lat'),
+            func.avg(PlantingRecommendation.lon).label('lon'),
+            func.count(PlantingRecommendation.id).label('count'),
+            grid.label('grid'),
+        ).group_by(grid).all()
+
+        return [
+            {'lat': round(float(r.lat), 6), 'lon': round(float(r.lon), 6), 'count': r.count}
+            for r in cols if r.lat is not None and r.lon is not None
+        ]
+
     def update(self, record: PlantingRecommendation) -> PlantingRecommendation:
         session = self._get_session()
         try:

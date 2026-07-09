@@ -31,6 +31,17 @@ class CoordinatesResponse(BaseModel):
     coordinates: list[dict] = Field(default=[], description="Array of {lat, lon} objects")
 
 
+class ClusterItem(BaseModel):
+    lat: float = Field(..., description="Cluster center latitude")
+    lon: float = Field(..., description="Cluster center longitude")
+    count: int = Field(..., description="Number of points in cluster")
+
+
+class ClustersResponse(BaseModel):
+    clusters: list[ClusterItem] = Field(default=[], description="Spatially aggregated clusters")
+    total: int = Field(0, description="Total points represented")
+
+
 @api.get('',
          responses={200: PlantingRecommendationResponse, 401: Unauthorized})
 def get_data(query: PlantingDataFilter):
@@ -88,6 +99,24 @@ def get_coordinates(query: PlantingDataFilter):
         return {"coordinates": [{"lat": lat, "lon": lon} for lat, lon in points]}, 200
     except Exception as e:
         logger.error(f"Error retrieving coordinates: {e}")
+        return {'error': str(e)}, 500
+
+
+@api.get('/clusters',
+         responses={200: ClustersResponse, 401: Unauthorized})
+def get_clusters(query: PlantingDataFilter):
+    try:
+        zoom = int(request.args.get('zoom', 5))
+        ne_lat = float(request.args.get('ne_lat', 90))
+        ne_lng = float(request.args.get('ne_lng', 180))
+        sw_lat = float(request.args.get('sw_lat', -90))
+        sw_lng = float(request.args.get('sw_lng', -180))
+
+        clusters = repo.get_clusters(query, zoom, ne_lat, ne_lng, sw_lat, sw_lng)
+        total = sum(c['count'] for c in clusters)
+        return {"clusters": clusters, "total": total}, 200
+    except Exception as e:
+        logger.error(f"Error fetching clusters: {e}")
         return {'error': str(e)}, 500
 
 

@@ -13,6 +13,8 @@
   var markers = null;
   var heat = null;
   var heatVisible = false;
+  var clusterLayer = null;
+  var clusterVisible = false;
 
   // ── DOM refs ────────────────────────────────────────────────
 
@@ -165,7 +167,7 @@
 
   function renderMap(data) {
     initMap();
-    if (heatVisible) return;
+    if (heatVisible || clusterVisible) return;
     markers.clearLayers();
     var items = data.data || [];
     if (!items.length) return;
@@ -309,6 +311,81 @@
         map.fitBounds(points.map(function (p) { return [p[0], p[1]]; }), { padding: [20, 20], maxZoom: 10 });
       })
       .catch(function (err) { showToast('Heatmap error: ' + err.message, 'danger'); });
+  }
+
+  // ── Clusters toggle ─────────────────────────────────────────
+
+  var clusterBtn = $('toggle-clusters');
+
+  clusterBtn.addEventListener('click', function () {
+    if (heatVisible) {
+      heatVisible = false;
+      heatmapBtn.classList.remove('active');
+      heatmapBtn.innerHTML = '<i class="bi bi-fire"></i> Heatmap';
+      if (heat) map.removeLayer(heat);
+    }
+
+    clusterVisible = !clusterVisible;
+    clusterBtn.classList.toggle('active', clusterVisible);
+    clusterBtn.innerHTML = clusterVisible
+      ? '<i class="bi bi-diagram-3"></i> Points'
+      : '<i class="bi bi-diagram-3"></i> Clusters';
+
+    if (clusterVisible) {
+      if (markers) map.removeLayer(markers);
+      showClusters();
+    } else {
+      if (clusterLayer) map.removeLayer(clusterLayer);
+      if (markers) map.addLayer(markers);
+    }
+  });
+
+  function showClusters() {
+    var bounds = map.getBounds();
+    var zoom = map.getZoom();
+    var p = new URLSearchParams();
+    p.set('zoom', zoom);
+    p.set('ne_lat', bounds.getNorth());
+    p.set('ne_lng', bounds.getEast());
+    p.set('sw_lat', bounds.getSouth());
+    p.set('sw_lng', bounds.getWest());
+    forEachFilter(function (key, el) {
+      if (el.value) p.set(key, el.value);
+    });
+
+    fetch('/api/v1/planting-data/clusters?' + p.toString())
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        var items = data.clusters || [];
+        if (!items.length) { showToast('No cluster data.', 'warning'); return; }
+        if (clusterLayer) map.removeLayer(clusterLayer);
+        clusterLayer = L.layerGroup();
+
+        var maxCount = items.reduce(function (m, c) { return Math.max(m, c.count); }, 1);
+        var boundsArr = [];
+        items.forEach(function (c) {
+          var lat = parseFloat(c.lat);
+          var lon = parseFloat(c.lon);
+          if (isNaN(lat) || isNaN(lon)) return;
+          var r = Math.max(4, Math.min(20, 4 + (c.count / maxCount) * 16));
+          var fill = c.count > maxCount * 0.5 ? '#e53935'
+                   : c.count > maxCount * 0.2 ? '#ff9800'
+                   : '#1976d2';
+          var m = L.circleMarker([lat, lon], {
+            radius: r, fillColor: fill, color: '#fff',
+            weight: 1.5, fillOpacity: 0.75,
+          });
+          m.bindTooltip(c.count + ' record' + (c.count !== 1 ? 's' : ''));
+          clusterLayer.addLayer(m);
+          boundsArr.push([lat, lon]);
+        });
+        map.addLayer(clusterLayer);
+        if (boundsArr.length) {
+          map.fitBounds(boundsArr, { padding: [20, 20], maxZoom: zoom + 1 });
+        }
+      })
+      .catch(function (err) { showToast('Clusters error: ' + err.message, 'danger'); });
   }
 
   // ── Load filter options ─────────────────────────────────────
