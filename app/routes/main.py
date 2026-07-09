@@ -309,6 +309,10 @@ def register_app_routes(app):
     def ui_explore():
         return render_template('explore.html', active_nav='explore')
 
+    @app.route('/ui/quality', methods=['GET'])
+    def ui_quality():
+        return render_template('quality.html', active_nav='quality')
+
     @app.route('/ui/jobs/data', methods=['GET'])
     def ui_jobs_data():
         jobs = _load_jobs()

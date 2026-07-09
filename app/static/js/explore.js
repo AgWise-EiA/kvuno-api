@@ -92,6 +92,8 @@
     if (filters.lon.value && filters.lat.value) {
       p.set('coordinates', filters.lon.value + ',' + filters.lat.value);
     }
+    if (state.sortCol) p.set('sort_col', state.sortCol);
+    if (state.sortDir) p.set('sort_dir', state.sortDir);
     return p.toString();
   }
 
@@ -103,7 +105,7 @@
       th.classList.remove('asc', 'desc');
       if (th.dataset.col === state.sortCol) th.classList.add(state.sortDir || 'asc');
     });
-    return fetch('/api/v1/planting-data/?' + q)
+    return fetch('/api/v1/planting-data?' + q)
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
@@ -208,7 +210,7 @@
     var p = new URLSearchParams(q);
     p.set('per_page', 100000);
     p.set('page', 1);
-    fetch('/api/v1/planting-data/?' + p.toString())
+    fetch('/api/v1/planting-data?' + p.toString())
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var items = data.data || [];

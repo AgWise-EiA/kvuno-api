@@ -130,10 +130,12 @@ def register_apis(app: OpenAPI):
     from app.api.user import api as user_api
     from app.api.planting_data import api as planting_data_api
     from app.api.upload import api as upload_api
+    from app.api.quality import api as quality_api
 
     app.register_api(user_api)
     app.register_api(planting_data_api)
     app.register_api(upload_api)
+    app.register_api(quality_api)
 
 
 def create_app():

@@ -207,10 +207,10 @@ information).
 |---------|--------|--------|
 | CSS framework | Bootstrap 5.3 (pnpm) | Already in use, good for data-heavy UIs |
 | Icons | Bootstrap Icons | Lightweight, no extra dependency |
-| Map | Leaflet + react-leaflet or vanilla | Lightweight, no API key needed |
+| Map | Leaflet + leaflet.markercluster | Lightweight, no API key needed; markercluster handles 50k+ points |
 | Charts | Chart.js | Simple, good for dashboards |
 | Tables | Bootstrap table or simple HTML | No need for DataTables complexity |
-| Export CSV | Client-side `Blob` + `URL.createObjectURL` | Zero extra deps |
+| Export CSV | Server streaming endpoint (recommended for scale) | Client-side Blob works <10k rows only; server stream required at scale |
 | State in URL | `URLSearchParams` for filter persistence | Shareable URLs |
 | Build tool | None — keep as static JS served by Flask | Avoids JS build step complexity |
 
@@ -239,6 +239,11 @@ Data scientists are not frontend engineers — the UI should be:
 - ✅ CSV / JSON export of filtered results
 - ✅ Map view with Leaflet (clustered circle markers)
 - ✅ Shareable URL with query params (filters, page, sort persisted)
+
+**Phase 2 caveats (tracked in [`PERFORMANCE_IMPROVEMENT.md`](./PERFORMANCE_IMPROVEMENT.md)):**
+- ⚠️ `leaflet.markercluster` is NOT in `package.json` — map falls back to unclustered `L.layerGroup`, which will freeze the browser beyond ~500 points
+- ⚠️ Export uses client-side Blob (`per_page=100000`) — will crash the tab on datasets >10k rows
+- ⚠️ Filter inputs are plain text fields — users must guess valid country/variety/season values
 
 ### Phase 3 — Data Quality (future)
 - ⬜ Conflicts dashboard

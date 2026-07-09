@@ -88,3 +88,11 @@ class PlantingDataFilter(BaseModel):
             if not pattern.match(value):
                 raise ValueError("Date must be in 'YYYY-MM-DD' format.")
         return value
+
+
+class QualityFilter(BaseModel):
+    country: Optional[str] = Field(default=None)
+    source: Optional[str] = Field(default=None)
+    search: Optional[str] = Field(default=None)
+    sort_col: Optional[str] = Field(default=None)
+    sort_dir: Optional[str] = Field(default=None)
