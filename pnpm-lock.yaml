@@ -1,39 +1,33 @@
-lockfileVersion: '9.0'
+lockfileVersion: 5.4
 
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false
+specifiers:
+  bootstrap: ^5.3.0
+  bootstrap-icons: ^1.11.3
+  leaflet: ^1.9.4
+  resumablejs: ^1.1.0
 
-importers:
-
-  .:
-    dependencies:
-      bootstrap:
-        specifier: ^5.3.0
-        version: 5.3.8(@popperjs/core@2.11.8)
-      resumablejs:
-        specifier: ^1.1.0
-        version: 1.1.0
+dependencies:
+  bootstrap: 5.3.8
+  bootstrap-icons: 1.13.1
+  leaflet: 1.9.4
+  resumablejs: 1.1.0
 
 packages:
 
-  '@popperjs/core@2.11.8':
-    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+  /bootstrap-icons/1.13.1:
+    resolution: {integrity: sha512-ijombt4v6bv5CLeXvRWKy7CuM3TRTuPEuGaGKvTV5cz65rQSY8RQ2JcHt6b90cBBAC7s8fsf2EkQDldzCoXUjw==}
+    dev: false
 
-  bootstrap@5.3.8:
+  /bootstrap/5.3.8:
     resolution: {integrity: sha512-HP1SZDqaLDPwsNiqRqi5NcP0SSXciX2s9E+RyqJIIqGo+vJeN5AJVM98CXmW/Wux0nQ5L7jeWUdplCEf0Ee+tg==}
     peerDependencies:
       '@popperjs/core': ^2.11.8
+    dev: false
 
-  resumablejs@1.1.0:
+  /leaflet/1.9.4:
+    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
+    dev: false
+
+  /resumablejs/1.1.0:
     resolution: {integrity: sha512-gUTWTtJ2aheRb5svHDGHMtQsBkGxTILpZApT11ODoxEe5D75GhYL7Nc/WYgCcJXY+5RVmm2BEsp2qriCkKWRRg==}
-
-snapshots:
-
-  '@popperjs/core@2.11.8': {}
-
-  bootstrap@5.3.8(@popperjs/core@2.11.8):
-    dependencies:
-      '@popperjs/core': 2.11.8
-
-  resumablejs@1.1.0: {}
+    dev: false

@@ -305,6 +305,10 @@ def register_app_routes(app):
     def ui_jobs_html():
         return render_template('jobs.html', active_nav='jobs')
 
+    @app.route('/ui/explore', methods=['GET'])
+    def ui_explore():
+        return render_template('explore.html', active_nav='explore')
+
     @app.route('/ui/jobs/data', methods=['GET'])
     def ui_jobs_data():
         jobs = _load_jobs()
