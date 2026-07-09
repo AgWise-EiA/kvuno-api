@@ -9,11 +9,6 @@
     sortDir: null,
   };
 
-  var totalRecords = 0;
-  var loading = false;
-  var hasMore = true;
-  var scrollObs = null;
-
   var map = null;
   var markers = null;
   var heat = null;
@@ -40,8 +35,8 @@
   var dataRows = $('data-rows');
   var pageInfo = $('page-info');
   var resultCount = $('result-count');
-  var scrollStatus = $('scroll-status');
-  var tableWrap = document.querySelector('.table-wrap');
+  var paginationSlot = $('pagination-slot');
+  var perPageSelect = $('per-page');
   var clearBtn = $('clear-filters');
   var exportCsv = $('export-csv');
   var exportJson = $('export-json');
@@ -60,6 +55,7 @@
     filters.lon.value = p.get('lon') || '';
     filters.lat.value = p.get('lat') || '';
     state.page = parseInt(p.get('page')) || 1;
+    state.perPage = parseInt(p.get('per_page')) || 200;
     state.sortCol = p.get('sort_col') || null;
     state.sortDir = p.get('sort_dir') || null;
   }
@@ -70,6 +66,7 @@
       if (el.value) p.set(key, el.value);
     });
     if (state.page > 1) p.set('page', state.page);
+    if (state.perPage !== 200) p.set('per_page', state.perPage);
     if (state.sortCol) p.set('sort_col', state.sortCol);
     if (state.sortDir) p.set('sort_dir', state.sortDir);
     var q = p.toString();
@@ -97,7 +94,6 @@
     forEachFilter(function (key, el) {
       if (el.value) p.set(key, el.value);
     });
-    // spatial: combine lon+lat into coordinates
     if (filters.lon.value && filters.lat.value) {
       p.set('coordinates', filters.lon.value + ',' + filters.lat.value);
     }
@@ -106,21 +102,10 @@
     return p.toString();
   }
 
-  function fetchData(reset) {
-    if (loading) return;
-    if (!reset && !hasMore) return;
-    loading = true;
-    if (reset) {
-      state.page = 1;
-      hasMore = true;
-      totalRecords = 0;
-      dataRows.innerHTML = '';
-    }
-    scrollStatus.textContent = 'Loading…';
-
+  function fetchData() {
+    perPageSelect.value = String(state.perPage);
     var q = buildQuery();
     urlFromState();
-    // highlight active sort
     document.querySelectorAll('.col-sort').forEach(function (th) {
       th.classList.remove('asc', 'desc');
       if (th.dataset.col === state.sortCol) th.classList.add(state.sortDir || 'asc');
@@ -129,62 +114,26 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
-        totalRecords = data.total;
-        hasMore = data.current_page < data.pages;
-        renderTable(data.data, !reset);
+        renderTable(data);
         renderMap(data);
+        renderPagination(data);
         resultCount.textContent = data.total + ' record' + (data.total !== 1 ? 's' : '');
-        pageInfo.textContent = 'Showing ' + dataRows.children.length + ' of ' + data.total;
-        state.page = data.current_page + 1;
-        updateScrollSentinel();
-        loading = false;
       })
       .catch(function (err) {
-        if (reset || !dataRows.children.length) {
-          dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-danger small py-3">' + escHtml(err.message) + '</td></tr>';
-        }
-        loading = false;
+        dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-danger small py-3">' + escHtml(err.message) + '</td></tr>';
+        paginationSlot.innerHTML = '';
       });
-  }
-
-  function updateScrollSentinel() {
-    disconnectObs();
-    // remove old sentinel
-    var old = dataRows.querySelector('.scroll-sentinel');
-    if (old) old.remove();
-
-    if (!hasMore) {
-      scrollStatus.textContent = '\u2713 All ' + totalRecords + ' records loaded';
-      return;
-    }
-    scrollStatus.textContent = 'Scroll for more…';
-    var tr = document.createElement('tr');
-    tr.className = 'scroll-sentinel';
-    tr.innerHTML = '<td colspan="8" class="text-center small text-muted py-2"><div class="spinner-border spinner-border-sm me-1" role="status"></div> Loading…</td>';
-    dataRows.appendChild(tr);
-    scrollObs = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting && hasMore && !loading) {
-        fetchData(false);
-      }
-    }, { root: tableWrap, rootMargin: '200px' });
-    scrollObs.observe(tr);
-  }
-
-  function disconnectObs() {
-    if (scrollObs) { scrollObs.disconnect(); scrollObs = null; }
   }
 
   // ── Table ───────────────────────────────────────────────────
 
-  function renderTable(items, append) {
-    items = items || [];
-    if (!items.length && !append) {
+  function renderTable(data) {
+    var items = data.data || [];
+    if (!items.length) {
       dataRows.innerHTML = '<tr><td colspan="8" class="text-center text-muted small py-3">No records match your filters.</td></tr>';
-      disconnectObs();
-      scrollStatus.textContent = '';
       return;
     }
-    var html = items.map(function (r) {
+    dataRows.innerHTML = items.map(function (r) {
       return '<tr>'
         + '<td>' + escHtml(r.country) + '</td>'
         + '<td>' + escHtml(r.province) + '</td>'
@@ -196,60 +145,47 @@
         + '<td>' + escHtml(r.planting_option) + '</td>'
         + '</tr>';
     }).join('');
-    if (append) {
-      dataRows.insertAdjacentHTML('beforeend', html);
-    } else {
-      dataRows.innerHTML = html;
-    }
   }
 
-  // ── Map ──────────────────────────────────────────────────────
+  // ── Pagination ──────────────────────────────────────────────
 
-  function initMap() {
-    if (map) return;
-    map = L.map('explore-map').setView([-12, 28], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 18,
-    }).addTo(map);
-    markers = L.markerClusterGroup ? null : L.layerGroup();
-    // If leaflet.markercluster is loaded, use clustering
-    if (L.markerClusterGroup) {
-      markers = L.markerClusterGroup({ chunkedLoading: true });
-    } else {
-      markers = L.layerGroup();
+  function renderPagination(data) {
+    var cur = data.current_page, pages = data.pages || 1;
+    pageInfo.textContent = 'Page ' + cur + ' of ' + pages;
+    var start = Math.max(1, cur - 2);
+    var end = Math.min(pages, cur + 2);
+
+    var h = '<div class="btn-group btn-group-sm me-2">';
+    h += '<button class="btn btn-outline-secondary page-btn" data-page="' + (cur - 1) + '"' + (cur <= 1 ? ' disabled' : '') + '>\u2039</button>';
+    if (start > 1) h += '<button class="btn btn-outline-secondary page-btn" data-page="1">1</button>' + (start > 2 ? '<button class="btn btn-outline-secondary page-btn" disabled>\u2026</button>' : '');
+    for (var i = start; i <= end; i++) {
+      h += '<button class="btn page-btn' + (i === cur ? ' btn-primary' : ' btn-outline-secondary') + '" data-page="' + i + '">' + i + '</button>';
     }
-    map.addLayer(markers);
-  }
+    if (end < pages) h += (end < pages - 1 ? '<button class="btn btn-outline-secondary page-btn" disabled>\u2026</button>' : '') + '<button class="btn btn-outline-secondary page-btn" data-page="' + pages + '">' + pages + '</button>';
+    h += '<button class="btn btn-outline-secondary page-btn" data-page="' + (cur + 1) + '"' + (cur >= pages ? ' disabled' : '') + '>\u203a</button>';
+    h += '</div>';
+    paginationSlot.innerHTML = h;
 
-  function renderMap(data) {
-    initMap();
-    if (heatVisible || clusterVisible) return;
-    markers.clearLayers();
-    var items = data.data || [];
-    if (!items.length) return;
-
-    var bounds = [];
-    items.forEach(function (r) {
-      var lat = parseFloat(r.lat);
-      var lon = parseFloat(r.lon);
-      if (isNaN(lat) || isNaN(lon)) return;
-      var m = L.circleMarker([lat, lon], {
-        radius: 5, fillColor: '#1976d2', color: '#fff',
-        weight: 1, fillOpacity: 0.8,
+    paginationSlot.querySelectorAll('.page-btn:not([disabled])').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        goToPage(parseInt(this.dataset.page));
       });
-      var label = (r.country || '') + ' - ' + (r.variety || '')
-        + '<br/>Date: ' + (r.opt_date || '')
-        + '<br/>Option: ' + (r.planting_option || '');
-      m.bindTooltip(label);
-      markers.addLayer(m);
-      bounds.push([lat, lon]);
     });
-
-    if (bounds.length) {
-      map.fitBounds(bounds, { padding: [20, 20], maxZoom: 12 });
-    }
   }
+
+  function goToPage(page) {
+    if (page < 1) return;
+    state.page = page;
+    fetchData();
+  }
+
+  // ── Per-page selector ───────────────────────────────────────
+
+  perPageSelect.addEventListener('change', function () {
+    state.perPage = parseInt(this.value);
+    state.page = 1;
+    fetchData();
+  });
 
   // ── Export ───────────────────────────────────────────────────
 
@@ -268,12 +204,12 @@
 
   // ── Event wiring ────────────────────────────────────────────
 
-  // Debounced filter input
   var debounceTimer;
   function onFilterInput() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
-      fetchData(true);
+      state.page = 1;
+      fetchData();
     }, 350);
   }
 
@@ -284,13 +220,13 @@
 
   clearBtn.addEventListener('click', function () {
     Object.keys(filters).forEach(function (key) { filters[key].value = ''; });
-    fetchData(true);
+    state.page = 1;
+    fetchData();
   });
 
   exportCsv.addEventListener('click', function () { exportFormat('csv'); });
   exportJson.addEventListener('click', function () { exportFormat('json'); });
 
-  // Column sorting
   document.querySelectorAll('.col-sort').forEach(function (th) {
     th.addEventListener('click', function () {
       var col = this.dataset.col;
@@ -300,7 +236,8 @@
         state.sortCol = col;
         state.sortDir = 'asc';
       }
-      fetchData(true);
+      state.page = 1;
+      fetchData();
     });
   });
 
@@ -461,6 +398,6 @@
 
   loadFilterOptions();
   paramsFromUrl();
-  fetchData(true);
+  fetchData();
 
 })();
