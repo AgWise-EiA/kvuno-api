@@ -154,6 +154,104 @@ class TestGetCurrentUser:
         with _test_request_context(headers={"Authorization": "Basic dXNlcjpwYXNz"}):
             assert get_current_user() is None
 
+    def test_returns_none_with_malformed_token(self):
+        from app.api.user import get_current_user
+        with _test_request_context(headers={"Authorization": "Bearer no-pipe-here"}):
+            assert get_current_user() is None
+
+    def test_valid_token_returns_user(self):
+        from unittest.mock import MagicMock, patch
+        from app.api.user import get_current_user, _hash_token
+        from app.models.kvuno import User, UserToken
+
+        token_id, secret = 1, "a" * 64
+        bearer = f"{token_id}|{secret}"
+        mock_user = User(id=1, username="test", email="test@example.com", password_hash="x")
+        mock_token_record = MagicMock(spec=UserToken, id=1, token=_hash_token(1, secret), expires_at=None)
+        mock_token_record.user_id = 1
+
+        mock_session = MagicMock()
+        mock_token_query = MagicMock()
+        mock_token_query.filter.return_value.first.return_value = mock_token_record
+        mock_user_query = MagicMock()
+        mock_user_query.filter.return_value.first.return_value = mock_user
+
+        def query_side_effect(cls):
+            if cls is User:
+                return mock_user_query
+            return mock_token_query
+        mock_session.query.side_effect = query_side_effect
+
+        with (
+            _test_request_context(headers={"Authorization": f"Bearer {bearer}"}),
+            patch("app.api.user.MyDb.get_db", return_value=MagicMock(session=mock_session)),
+        ):
+            user = get_current_user()
+            assert user is not None
+            assert user.id == 1
+
+    def test_expired_token_returns_none(self):
+        from datetime import datetime, timezone, timedelta
+        from unittest.mock import MagicMock, patch
+        from app.api.user import get_current_user, _hash_token
+        from app.models.kvuno import UserToken
+
+        token_id, secret = 1, "a" * 64
+        bearer = f"{token_id}|{secret}"
+        mock_token_record = MagicMock(
+            spec=UserToken, id=1,
+            token=_hash_token(1, secret),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        mock_session = MagicMock()
+        mock_token_query = MagicMock()
+        mock_token_query.filter.return_value.first.return_value = mock_token_record
+        mock_session.query.return_value = mock_token_query
+
+        with (
+            _test_request_context(headers={"Authorization": f"Bearer {bearer}"}),
+            patch("app.api.user.MyDb.get_db", return_value=MagicMock(session=mock_session)),
+        ):
+            assert get_current_user() is None
+
+    def test_wrong_secret_returns_none(self):
+        from unittest.mock import MagicMock, patch
+        from app.api.user import get_current_user, _hash_token
+        from app.models.kvuno import UserToken
+
+        bearer = "1|bbbbbb"  # stored hash was made with "1|aaaaaa"
+        mock_token_record = MagicMock(
+            spec=UserToken, id=1,
+            token=_hash_token(1, "aaaaaa"),  # mismatched
+            expires_at=None,
+        )
+        mock_token_query = MagicMock()
+        mock_token_query.filter.return_value.first.return_value = mock_token_record
+        mock_session = MagicMock()
+        mock_session.query.return_value = mock_token_query
+
+        with (
+            _test_request_context(headers={"Authorization": f"Bearer {bearer}"}),
+            patch("app.api.user.MyDb.get_db", return_value=MagicMock(session=mock_session)),
+        ):
+            assert get_current_user() is None
+
+    def test_revoked_token_returns_none(self):
+        from unittest.mock import MagicMock, patch
+        from app.api.user import get_current_user
+
+        bearer = "1|aaaaaa"
+        mock_token_query = MagicMock()
+        mock_token_query.filter.return_value.first.return_value = None  # not found = revoked
+        mock_session = MagicMock()
+        mock_session.query.return_value = mock_token_query
+
+        with (
+            _test_request_context(headers={"Authorization": f"Bearer {bearer}"}),
+            patch("app.api.user.MyDb.get_db", return_value=MagicMock(session=mock_session)),
+        ):
+            assert get_current_user() is None
+
 
 class TestSecurityHeaders:
     @staticmethod
