@@ -5,8 +5,9 @@ import json
 from flask import request, Response, stream_with_context
 from flask_openapi3 import Tag, APIBlueprint
 
+from app.auth import require_auth
 from app.cache import api_cache
-from app.config import API_PREFIX, API_VERSION
+from app.config import API_PREFIX, API_VERSION, RATE_LIMIT_DATA
 from app.dto.data_filters import PlantingDataFilter
 from app.dto.planting_recommendation import PlantingRecommendationRecord, PlantingRecommendationResponse, Unauthorized
 from app.rate_limit import limiter
@@ -53,7 +54,7 @@ def _clamp_per_page(value: int) -> int:
 
 @api.get('',
          responses={200: PlantingRecommendationResponse, 401: Unauthorized})
-@limiter.limit("120 per minute")
+@limiter.limit(RATE_LIMIT_DATA)
 def get_data(query: PlantingDataFilter):
     page = max(1, int(request.args.get('page', default=1, type=int)))
     per_page = _clamp_per_page(int(request.args.get('per_page', default=50, type=int)))
@@ -92,6 +93,8 @@ FILTER_COLUMNS = ['country', 'province', 'variety', 'season_type']
 
 
 @api.get('/filters')
+@require_auth
+@limiter.limit(RATE_LIMIT_DATA)
 @api_cache('filters', ttl=300)
 def get_filter_options():
     try:
@@ -104,6 +107,8 @@ def get_filter_options():
 
 @api.get('/coordinates',
          responses={200: CoordinatesResponse, 401: Unauthorized})
+@require_auth
+@limiter.limit(RATE_LIMIT_DATA)
 @api_cache('coordinates', ttl=120)
 def get_coordinates(query: PlantingDataFilter):
     try:
@@ -116,6 +121,8 @@ def get_coordinates(query: PlantingDataFilter):
 
 @api.get('/clusters',
          responses={200: ClustersResponse, 401: Unauthorized})
+@require_auth
+@limiter.limit(RATE_LIMIT_DATA)
 @api_cache('clusters', ttl=120)
 def get_clusters(query: PlantingDataFilter):
     try:
@@ -138,6 +145,8 @@ def _row_to_dict(row):
 
 
 @api.get('/export')
+@require_auth
+@limiter.limit(RATE_LIMIT_DATA)
 def export_data(query: PlantingDataFilter):
     fmt = request.args.get('format', 'csv')
 

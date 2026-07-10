@@ -19,11 +19,18 @@ def build_db_url() -> str:
         name = os.getenv("DB_NAME", "kvuno.db")
         return f"sqlite:///{name}"
 
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    name = os.getenv("DB_NAME")
     host = os.getenv("DB_HOST", "127.0.0.1")
     port = os.getenv("DB_PORT", "5432")
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "postgres")
-    name = os.getenv("DB_NAME", "agwise_api")
+
+    missing = [k for k, v in [("DB_USER", user), ("DB_PASSWORD", password), ("DB_NAME", name)] if not v]
+    if missing:
+        raise RuntimeError(
+            f"Missing required DB environment variables: {', '.join(missing)}. "
+            "Set them individually or use DB_URL for full control."
+        )
 
     return f"{driver}://{user}:{password}@{host}:{port}/{name}"
 
@@ -50,6 +57,33 @@ def celery_broker_available() -> bool:
         return True
     except (OSError, ValueError):
         return False
+
+
+# ── Rate limiting ─────────────────────────────────────────────
+#
+# Each value is a string compatible with flask-limiter's limit syntax:
+#   "10 per hour", "120 per minute", "1000 per day", etc.
+#
+RATE_LIMIT_REGISTER = os.getenv('RATE_LIMIT_REGISTER', '10 per hour')
+RATE_LIMIT_LOGIN = os.getenv('RATE_LIMIT_LOGIN', '20 per hour')
+RATE_LIMIT_UPLOAD = os.getenv('RATE_LIMIT_UPLOAD', '10 per hour')
+RATE_LIMIT_DATA = os.getenv('RATE_LIMIT_DATA', '120 per minute')
+# Storage backend for rate limit counters.
+# Supports any flask-limiter storage URI:
+#   memory://          — in-process (default, resets on restart)
+#   redis://localhost:6379/0
+#   redis+sentinel://localhost:26379
+RATE_LIMIT_STORAGE = os.getenv('RATE_LIMIT_STORAGE', 'memory://')
+
+# ── Token / auth ───────────────────────────────────────────────
+JWT_SECRET = os.getenv('JWT_SECRET')
+if not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required. "
+        "Set it in your .env file or environment before starting the app."
+    )
+TOKEN_TTL_DAYS = int(os.getenv('TOKEN_TTL_DAYS', '0'))
+# Set to 0 for no expiry, or a positive number of days.
 
 
 # ── Housekeeping / ingestion ───────────────────────────────────
