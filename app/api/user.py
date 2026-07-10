@@ -1,6 +1,7 @@
 import secrets
 import hashlib
 from datetime import datetime, timedelta, timezone
+from urllib.parse import unquote
 
 import bcrypt
 from flask import request
@@ -41,7 +42,11 @@ def _hash_token(token_id: int, secret: str) -> str:
     return hashlib.sha256(f"{token_id}|{secret}".encode()).hexdigest()
 
 
-@api.post('/register', responses={201: RegisterResponse, 409: {"description": "Username or email already exists"}})
+@api.post('/register',
+          responses={201: RegisterResponse, 409: {"description": "Username or email already exists"}},
+          summary="Register a new user account",
+          description="Create a new user with username, email, and password.",
+          security=[])
 @limiter.limit(RATE_LIMIT_REGISTER)
 def register(body: RegisterRequest):
     db = MyDb.get_db()
@@ -58,7 +63,11 @@ def register(body: RegisterRequest):
     return {"msg": "registration success"}, 201
 
 
-@api.post('/login', responses={200: LoginResponse, 401: {"description": "Invalid credentials"}})
+@api.post('/login',
+          responses={200: LoginResponse, 401: {"description": "Invalid credentials"}},
+          summary="Authenticate and get a Bearer token",
+          description="Exchange valid credentials for a JWT access token (id|secret format). Token TTL is configurable via TOKEN_TTL_DAYS.",
+          security=[])
 @limiter.limit(RATE_LIMIT_LOGIN)
 def login(body: LoginRequest):
     db = MyDb.get_db()
@@ -83,21 +92,12 @@ def login(body: LoginRequest):
     return {"msg": "login success", "access_token": _format_token(token_id, secret)}, 200
 
 
-def get_current_user():
-    """Extract the authenticated user from the request's Authorization header.
-
-    Returns:
-        User or None if not authenticated.
-    """
-    auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('Bearer '):
-        return None
-    raw = auth_header.replace('Bearer ', '', 1)
+def _resolve_token(raw: str):
+    """Look up a ``{id}|{secret}`` token and return the matching User, or None."""
     parsed = _parse_token(raw)
     if parsed is None:
         return None
     token_id, secret = parsed
-
     db = MyDb.get_db()
     token_record = db.session.query(UserToken).filter(UserToken.id == token_id).first()
     if not token_record:
@@ -109,7 +109,37 @@ def get_current_user():
     return db.session.query(User).filter(User.id == token_record.user_id).first()
 
 
-@api.post('/logout', responses={200: {"description": "Logged out"}, 401: {"description": "Invalid or missing token"}})
+def get_current_user():
+    """Extract the authenticated user from the request.
+
+    Checks (in order):
+      1. ``Authorization: Bearer <token>`` header
+      2. ``token`` cookie
+
+    Returns:
+        User or None if not authenticated.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        raw = auth_header.replace('Bearer ', '', 1)
+        user = _resolve_token(raw)
+        if user:
+            return user
+
+    cookie = request.cookies.get('token')
+    if cookie:
+        user = _resolve_token(unquote(cookie))
+        if user:
+            return user
+
+    return None
+
+
+@api.post('/logout',
+          responses={200: {"description": "Logged out"}, 401: {"description": "Invalid or missing token"}},
+          summary="Revoke the current token",
+          description="Delete the current Bearer token from the database. Caller should also clear the client-side token cookie.",
+          security=[{"jwt": []}])
 def logout():
     """Revoke the current token by deleting it from user_tokens."""
     auth_header = request.headers.get('Authorization', '')
@@ -126,4 +156,8 @@ def logout():
         return {"msg": "invalid token"}, 401
     db.session.delete(token_record)
     db.session.commit()
-    return {"msg": "logged out successfully"}, 200
+
+    resp = {"msg": "logged out successfully"}
+    # Flask view can't delete cookies on a JSON response easily,
+    # so the caller should also clear the client-side cookie.
+    return resp, 200
