@@ -18,6 +18,7 @@ from app.config import build_db_url, APP_NAME, APP_VERSION, HOUSEKEEPING_DATA_DI
 # Load environment variables from .env file
 load_dotenv()
 
+
 def _cleanup_temp_files():
     data_dir = Path(HOUSEKEEPING_DATA_DIR)
     if not data_dir.is_dir():
@@ -78,13 +79,14 @@ info = Info(
     version=APP_VERSION,
     contact=contact,
     license=api_license,
-    termsOfService="https://agwise.cgiar.org/terms-of-service"
+    termsOfService="https://agwise.org/terms-of-service"
 )
 
 # API servers
 servers = [
     Server(url="http://127.0.0.1:5000"),
-    Server(url=os.getenv("SERVER_URL_PROD", "https://kvuno.akilimo.org")),
+    Server(url=os.getenv("SERVER_URL_PROD", "https://kvuno.agwise.org")),
+    Server(url=os.getenv("SERVER_URL_PROD_2", "https://kvuno.akilimo.org")),
 ]
 
 
@@ -142,12 +144,14 @@ def run_migrations():
 def register_apis(app: OpenAPI):
     """Register all API Blueprints with the Flask app."""
     from app.api.user import api as user_api
-    from app.api.planting_data import api as planting_data_api
+    from app.api.planting_data import public_api as pd_public_api
+    from app.api.planting_data import protected_api as pd_protected_api
     from app.api.upload import api as upload_api
     from app.api.quality import api as quality_api
 
     app.register_api(user_api)
-    app.register_api(planting_data_api)
+    app.register_api(pd_public_api)
+    app.register_api(pd_protected_api)
     app.register_api(upload_api)
     app.register_api(quality_api)
 
@@ -158,11 +162,21 @@ def create_app():
         __name__,
         servers=servers,
         info=info,
+        doc_prefix="/api-docs",
         security_schemes={
-            "basic": {"type": "http", "scheme": "basic"},
-            "jwt": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+            "jwt": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Access token returned by POST /api/v1/users/login in the format {id}|{secret}. "
+                               "Include as: Authorization: Bearer {token}"
+            },
         }
     )
+
+    # Swagger UI config — hide the Schemas section
+    # app.config['SWAGGER_CONFIG'] = {"defaultModelsExpandDepth": -1}
+    # app.config['OPENAPI_HTML_STRING'] = '<!DOCTYPE html><script>window.location.href="swagger"</script>'
 
     # Enable Cross-Origin Resource Sharing (CORS)
     cors_origins = os.getenv('CORS_ORIGINS', 'http://127.0.0.1:5000')
@@ -180,6 +194,22 @@ def create_app():
     def ratelimit_handler(e):
         return {"error": "Rate limit exceeded. Please slow down."}, 429
 
+    @app.errorhandler(400)
+    def bad_request(e):
+        return {"error": "Bad request"}, 400
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return {"error": "Forbidden"}, 403
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return {"error": "Not found"}, 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        return {"error": "Internal server error"}, 500
+
     # Security headers for all responses
     @app.after_request
     def add_security_headers(response):
@@ -195,7 +225,7 @@ def create_app():
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
                 "img-src 'self' data: https://tile.openstreetmap.org; "
                 "font-src 'self' https://cdn.jsdelivr.net; "
-                "connect-src 'self' https://tile.openstreetmap.org; "
+                "connect-src 'self' https://tile.openstreetmap.org https://cdn.jsdelivr.net; "
                 "frame-ancestors 'none';"
             )
         return response
