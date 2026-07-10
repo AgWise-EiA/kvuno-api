@@ -1,9 +1,3 @@
-# Production deployment flow:
-#   1. docker compose run --rm migrate            # run DB migrations
-#   2. docker compose up -d prod worker            # start app + background worker
-#
-# The migrate service uses Dockerfile.prod.dockerfile by default.
-# Override with MIGRATE_DOCKERFILE=Dockerfile for development.
 services:
   dev:
     container_name: kvuno-dev
@@ -127,13 +121,12 @@ services:
 
   # One-shot migration runner. Run before starting the app:
   #   docker compose run --rm migrate
-  # Override with MIGRATE_DOCKERFILE=Dockerfile.prod.dockerfile in production.
   migrate:
     container_name: kvuno-migrate
     image: masgeek/kvuno-api:${TAG:-latest}
     build:
       context: .
-      dockerfile: ${MIGRATE_DOCKERFILE:-Dockerfile.prod.dockerfile}
+      dockerfile: Dockerfile
     command: ["python3", "scripts/run_migrations.py"]
     restart: no
     environment:
