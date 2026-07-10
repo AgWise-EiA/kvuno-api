@@ -3,8 +3,6 @@ import logging
 import os
 import tempfile
 
-from pathlib import Path
-import tempfile
 
 from app.utils import calculate_file_checksum
 

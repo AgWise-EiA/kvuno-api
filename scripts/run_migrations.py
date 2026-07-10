@@ -7,7 +7,6 @@ This script runs pending Alembic migrations and exits.
 It does not start the web server.
 """
 import sys
-import os
 
 from dotenv import load_dotenv
 

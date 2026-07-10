@@ -2,7 +2,6 @@
 
 from functools import wraps
 
-from flask import jsonify
 
 from app.api.user import get_current_user
 
