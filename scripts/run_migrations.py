@@ -6,7 +6,13 @@ Run before starting the application in production:
 This script runs pending Alembic migrations and exits.
 It does not start the web server.
 """
+import os
 import sys
+
+# Ensure the project root is on sys.path
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 from dotenv import load_dotenv
 
