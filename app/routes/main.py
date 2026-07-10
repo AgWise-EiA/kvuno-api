@@ -170,17 +170,20 @@ def register_app_routes(app):
         return jsonify(health_status), 200 if db_connected else 500
 
     @app.route('/ui/columns', methods=['GET'])
+    @require_auth
     def ui_columns():
         return jsonify(columns=sorted(DB_TARGET_COLUMNS), aliases=COLUMN_ALIASES)
 
     # ── Upload UI ──────────────────────────────────────────────
 
     @app.route('/ui/upload', methods=['GET'])
+    @require_auth
     def upload_ui():
         max_size = int(os.getenv('MAX_FILE_SIZE_MB', '20'))
         return render_template('upload.html', max_file_size=max_size * 1024 * 1024, active_nav='upload')
 
     @app.route('/ui/upload/resumable', methods=['GET'])
+    @require_auth
     def upload_resumable_test():
         """Resumable.js test — return 200 if chunk exists, 204 otherwise."""
         try:
@@ -194,6 +197,7 @@ def register_app_routes(app):
         return '', 204
 
     @app.route('/ui/upload/resumable', methods=['POST'])
+    @require_auth
     def upload_resumable_chunk():
         """Receive a single chunk from resumable.js."""
         try:
@@ -293,6 +297,7 @@ def register_app_routes(app):
         return jsonify(id=file_name, message="File saved with mapping. Set HOUSEKEEPING_ENABLED=true and start a Celery worker.")
 
     @app.route('/ui/progress/<file_name>', methods=['GET'])
+    @require_auth
     def ui_progress(file_name):
         data_dir = Path(DATA_DIR).resolve()
         file_path = (data_dir / file_name).resolve()
@@ -308,23 +313,28 @@ def register_app_routes(app):
             return jsonify(status='error', current=0, total=0, message=str(e))
 
     @app.route('/ui/jobs', methods=['GET'])
+    @require_auth
     def ui_jobs_html():
         return render_template('jobs.html', active_nav='jobs')
 
     @app.route('/ui/explore', methods=['GET'])
+    @require_auth
     def ui_explore():
         return render_template('explore.html', active_nav='explore')
 
     @app.route('/ui/quality', methods=['GET'])
+    @require_auth
     def ui_quality():
         return render_template('quality.html', active_nav='quality')
 
     @app.route('/ui/jobs/data', methods=['GET'])
+    @require_auth
     def ui_jobs_data():
         jobs = _load_jobs()
         return jsonify(jobs=jobs)
 
     @app.route('/ui/jobs/events', methods=['GET'])
+    @require_auth
     def ui_jobs_events():
         with _sse_lock:
             if len(_sse_queues) >= _MAX_SSE_CLIENTS:
