@@ -35,6 +35,10 @@ def build_db_url() -> str:
     return f"{driver}://{user}:{password}@{host}:{port}/{name}"
 
 
+# --- File upload------
+MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE_MB', '20')) * 1024 * 1024
+ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
+
 # ── Celery / Redis ─────────────────────────────────────────────
 
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
