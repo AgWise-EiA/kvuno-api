@@ -120,7 +120,7 @@ def _sanitize_db_url(url: str) -> str:
         if parsed.port:
             netloc = f"{netloc}:{parsed.port}"
         cleaned = parsed._replace(netloc=netloc)
-        return urlunparse(cleaned)
+        return str(urlunparse(cleaned))
     return url
 
 
