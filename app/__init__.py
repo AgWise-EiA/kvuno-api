@@ -155,6 +155,17 @@ def create_app():
     origins = [o.strip() for o in cors_origins.split(',') if o.strip()]
     CORS(app, origins=origins, supports_credentials=True)
 
+    # Rate limiting
+    from app.rate_limit import limiter
+    limiter.init_app(app)
+    storage_uri = os.getenv('RATE_LIMIT_STORAGE', 'memory://')
+    if storage_uri != 'memory://':
+        limiter._storage_uri = storage_uri
+
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return {"error": "Rate limit exceeded. Please slow down."}, 429
+
     # Configure the database URI
     app.config['SQLALCHEMY_DATABASE_URI'] = build_db_url()
     app.config['SQLALCHEMY_ECHO'] = os.getenv('DEBUG_DB', 'false').lower() == 'true'

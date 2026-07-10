@@ -8,6 +8,7 @@ from app.config import API_PREFIX, API_VERSION
 from app.dto.auth import RegisterRequest, RegisterResponse, LoginRequest, LoginResponse
 from app.models.database_conn import MyDb
 from app.models.kvuno import User, UserToken
+from app.rate_limit import limiter
 
 __bp__ = "/users"
 url_prefix = API_PREFIX + API_VERSION + __bp__
@@ -18,6 +19,7 @@ api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
 
 
 @api.post('/register', responses={201: RegisterResponse, 409: {"description": "Username or email already exists"}})
+@limiter.limit("10 per hour")
 def register(body: RegisterRequest):
     db = MyDb.get_db()
     existing = db.session.query(User).filter(
@@ -34,6 +36,7 @@ def register(body: RegisterRequest):
 
 
 @api.post('/login', responses={200: LoginResponse, 401: {"description": "Invalid credentials"}})
+@limiter.limit("20 per hour")
 def login(body: LoginRequest):
     db = MyDb.get_db()
     user = db.session.query(User).filter(User.username == body.username).first()

@@ -9,6 +9,7 @@ from app.cache import api_cache
 from app.config import API_PREFIX, API_VERSION
 from app.dto.data_filters import PlantingDataFilter
 from app.dto.planting_recommendation import PlantingRecommendationRecord, PlantingRecommendationResponse, Unauthorized
+from app.rate_limit import limiter
 from app.repo.planting_recommendation import PlantingRecommendationRepo
 from app.utils.logging import SharedLogger
 from pydantic import BaseModel, Field
@@ -52,6 +53,7 @@ def _clamp_per_page(value: int) -> int:
 
 @api.get('',
          responses={200: PlantingRecommendationResponse, 401: Unauthorized})
+@limiter.limit("120 per minute")
 def get_data(query: PlantingDataFilter):
     page = max(1, int(request.args.get('page', default=1, type=int)))
     per_page = _clamp_per_page(int(request.args.get('per_page', default=50, type=int)))
