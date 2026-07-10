@@ -166,6 +166,26 @@ def create_app():
     def ratelimit_handler(e):
         return {"error": "Rate limit exceeded. Please slow down."}, 429
 
+    # Security headers for all responses
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('X-XSS-Protection', '0')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault('Permissions-Policy', '')
+        if response.content_type and 'text/html' in response.content_type:
+            response.headers.setdefault(
+                'Content-Security-Policy',
+                "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+                "img-src 'self' data: https://tile.openstreetmap.org; "
+                "font-src 'self' https://cdn.jsdelivr.net; "
+                "connect-src 'self' https://tile.openstreetmap.org; "
+                "frame-ancestors 'none';"
+            )
+        return response
+
     # Configure the database URI
     app.config['SQLALCHEMY_DATABASE_URI'] = build_db_url()
     app.config['SQLALCHEMY_ECHO'] = os.getenv('DEBUG_DB', 'false').lower() == 'true'
@@ -175,7 +195,9 @@ def create_app():
     init_db(app)
 
     # Run pending Alembic migrations
-    if os.getenv('RUN_MIGRATION', 'true').lower() == 'true':
+    # Defaults to false in production, true otherwise
+    default_migrate = 'false' if os.getenv('FLASK_ENV', 'development') == 'production' else 'true'
+    if os.getenv('RUN_MIGRATION', default_migrate).lower() == 'true':
         with app.app_context():
             run_migrations()
 
