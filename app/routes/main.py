@@ -6,10 +6,9 @@ import uuid
 
 import pandas as pd
 import pyreadr
-from flask import abort, redirect, jsonify, render_template, request, Response, send_from_directory, stream_with_context
+from flask import abort, redirect, jsonify, render_template, request, Response, stream_with_context
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-from werkzeug.utils import safe_join
 
 from pathlib import Path
 
@@ -169,16 +168,6 @@ def register_app_routes(app):
             "database": "UP" if db_connected else "DOWN"
         }
         return jsonify(health_status), 200 if db_connected else 500
-
-    @app.route('/npm/<path:filename>')
-    def npm_serve(filename):
-        if os.getenv('FLASK_ENV', 'development') != 'development':
-            abort(404)
-        nm = os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..', 'node_modules'))
-        safe = safe_join(nm, filename)
-        if safe is None or not os.path.realpath(safe).startswith(nm):
-            abort(404)
-        return send_from_directory(nm, filename)
 
     @app.route('/ui/columns', methods=['GET'])
     def ui_columns():
