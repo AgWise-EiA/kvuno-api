@@ -51,6 +51,18 @@ jobs:
       - name: Lint with ruff
         run: poetry run ruff check .
 
+      - name: Audit Python dependencies
+        run: poetry run pip-audit --strict --progress-spinner off
+
+      - name: Audit JavaScript dependencies
+        shell: bash
+        run: |
+          if [ -f "pnpm-lock.yaml" ]; then
+            pnpm audit --audit-level=high || echo "pnpm audit found issues (non-blocking)"
+          else
+            echo "No pnpm lock file found, skipping JS audit"
+          fi
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     needs: [ lint ]
