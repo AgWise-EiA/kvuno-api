@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Upload &amp; Map — kvuno{% endblock %}
 {% block head_extra %}
-<script src="{{ url_for('npm_serve', filename='resumablejs/resumable.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/resumablejs@1.1.0/resumable.js"></script>
 {% endblock %}
 
 {% block body_attrs %}data-max-file-size="{{ max_file_size }}"{% endblock %}
