@@ -57,6 +57,7 @@ class _ProgressHandler(FileSystemEventHandler):
 
 _sse_queues: list[queue.Queue] = []
 _sse_lock = threading.Lock()
+_MAX_SSE_CLIENTS = 50
 
 
 def _notify_sse_clients():
@@ -336,6 +337,9 @@ def register_app_routes(app):
 
     @app.route('/ui/jobs/events', methods=['GET'])
     def ui_jobs_events():
+        with _sse_lock:
+            if len(_sse_queues) >= _MAX_SSE_CLIENTS:
+                return jsonify(error="Too many SSE connections. Try again later."), 503
         def generate():
             q = queue.Queue(maxsize=16)
             with _sse_lock:
@@ -344,9 +348,16 @@ def register_app_routes(app):
                 raw, counts = _format_jobs(_load_jobs())
                 yield f"data: {json.dumps({'jobs': raw, 'counts': counts})}\n\n"
                 while True:
-                    q.get()
+                    try:
+                        q.get(timeout=60)
+                    except queue.Empty:
+                        # Send keepalive comment and continue waiting
+                        yield ": keepalive\n\n"
+                        continue
                     raw, counts = _format_jobs(_load_jobs())
                     yield f"data: {json.dumps({'jobs': raw, 'counts': counts})}\n\n"
+            except GeneratorExit:
+                pass
             finally:
                 with _sse_lock:
                     if q in _sse_queues:

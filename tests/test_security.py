@@ -155,6 +155,23 @@ class TestGetCurrentUser:
             assert get_current_user() is None
 
 
+class TestRedisConfig:
+    def test_redis_url_supports_password(self):
+        from urllib.parse import urlparse
+        url = "redis://:mysecretpassword@redis:6379/0"
+        parsed = urlparse(url)
+        assert parsed.password == "mysecretpassword"
+        assert parsed.hostname == "redis"
+        assert parsed.port == 6379
+
+    def test_redis_url_no_password(self):
+        from urllib.parse import urlparse
+        url = "redis://localhost:6379/0"
+        parsed = urlparse(url)
+        assert parsed.password is None
+        assert parsed.hostname == "localhost"
+
+
 class TestPaginationBounds:
     def test_clamps_high_per_page(self):
         from app.api.planting_data import _clamp_per_page, MAX_PER_PAGE
