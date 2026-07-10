@@ -12,6 +12,7 @@ import sys
 # Ensure the project root is on sys.path
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
+    # noinspection PyTypeChecker
     sys.path.insert(0, _project_root)
 
 from dotenv import load_dotenv

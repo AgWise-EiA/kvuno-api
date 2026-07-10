@@ -173,6 +173,26 @@ class TestSecurityHeaders:
         assert 'strict-origin' in headers['Referrer-Policy']
 
 
+class TestSanitizeDbUrl:
+    def test_strips_password(self):
+        from app.__init__ import _sanitize_db_url
+        result = _sanitize_db_url("postgresql://user:secret@host:5432/db")
+        assert "secret" not in result
+        assert "****" in result
+        assert result == "postgresql://user:****@host:5432/db"
+
+    def test_leaves_url_without_password(self):
+        from app.__init__ import _sanitize_db_url
+        result = _sanitize_db_url("postgresql://host:5432/db")
+        assert result == "postgresql://host:5432/db"
+
+    def test_handles_no_port(self):
+        from app.__init__ import _sanitize_db_url
+        result = _sanitize_db_url("postgresql://user:secret@host/db")
+        assert "secret" not in result
+        assert "****" in result
+
+
 class TestMigrationDefaults:
     def test_migration_defaults_to_false_in_production(self):
         assert True  # validated by reading app/__init__.py logic

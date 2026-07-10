@@ -111,12 +111,26 @@ def _db_available() -> bool:
         return False
 
 
+def _sanitize_db_url(url: str) -> str:
+    """Strip credentials from a database URL for safe logging."""
+    from urllib.parse import urlparse, urlunparse
+    parsed = urlparse(url)
+    if parsed.password:
+        netloc = f"{parsed.username or ''}:****@{parsed.hostname or ''}"
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        cleaned = parsed._replace(netloc=netloc)
+        return urlunparse(cleaned)
+    return url
+
+
 def run_migrations():
     """Run pending Alembic migrations at startup."""
     if not _db_available():
-        import logging
-        logging.warning(
-            f"Database at {build_db_url()} is not reachable — skipping migrations. "
+        from app.utils.logging import SharedLogger
+        _log = SharedLogger().get_logger()
+        _log.warning(
+            f"Database at {_sanitize_db_url(build_db_url())} is not reachable — skipping migrations. "
             f"Set RUN_MIGRATION=false to suppress this check."
         )
         return
