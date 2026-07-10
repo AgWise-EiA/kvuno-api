@@ -1,9 +1,3 @@
-FROM node:24-alpine AS frontend
-WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
 FROM python:3.14-slim AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
@@ -38,7 +32,6 @@ RUN groupadd -g ${GID} app && \
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=frontend /app/node_modules /app/node_modules
 COPY --chown=app:app . .
 RUN chown app:app /app
 
