@@ -101,6 +101,43 @@ class TestBcryptHashing:
         assert h1 != h2
 
 
+class TestSSRFValidation:
+    def test_rejects_http_when_https_required(self):
+        from app.utils.downloader import validate_remote_url
+        import pytest
+        with pytest.raises(ValueError, match="Only HTTPS"):
+            validate_remote_url("http://example.com/file.RDS")
+
+    def test_accepts_https(self):
+        from app.utils.downloader import validate_remote_url
+        result = validate_remote_url("https://example.com/file.RDS")
+        assert result == "https://example.com/file.RDS"
+
+    def test_rejects_loopback(self):
+        from app.utils.downloader import validate_remote_url
+        import pytest
+        with pytest.raises(ValueError, match="private|internal"):
+            validate_remote_url("https://127.0.0.1/file.RDS")
+
+    def test_rejects_private_ip(self):
+        from app.utils.downloader import validate_remote_url
+        import pytest
+        with pytest.raises(ValueError, match="private|internal"):
+            validate_remote_url("https://10.0.0.1/file.RDS")
+
+    def test_rejects_metadata_address(self):
+        from app.utils.downloader import validate_remote_url
+        import pytest
+        with pytest.raises(ValueError, match="metadata"):
+            validate_remote_url("https://169.254.169.254/file.RDS")
+
+    def test_rejects_no_hostname(self):
+        from app.utils.downloader import validate_remote_url
+        import pytest
+        with pytest.raises(ValueError, match="no hostname"):
+            validate_remote_url("https:///file.RDS")
+
+
 class TestGetCurrentUser:
     def test_returns_none_without_auth_header(self):
         from app.api.user import get_current_user

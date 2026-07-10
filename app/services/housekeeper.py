@@ -201,8 +201,21 @@ def download_remote_files(data_folder: str) -> list[str]:
       - REMOTE_RDS_COOKIES: Comma-separated key=value pairs
       - REMOTE_RDS_HEADERS: Comma-separated key:value pairs
 
+    SSRF protection is enforced:
+      - Only HTTPS URLs are allowed (override with REMOTE_RDS_ALLOW_HTTP=true)
+      - Private/internal IP addresses are blocked
+      - Cloud metadata endpoints are blocked
+      - Redirects are not followed unless redirect targets pass validation
+
     Download errors are logged and skipped gracefully.
     """
+    from app.utils.downloader import configure_ssrf
+
+    allowed_domains_raw = os.getenv("REMOTE_RDS_ALLOWED_DOMAINS", "").strip()
+    allowed_domains = [d.strip() for d in allowed_domains_raw.split(",") if d.strip()] or None
+    require_https = os.getenv("REMOTE_RDS_ALLOW_HTTP", "").lower() != "true"
+    configure_ssrf(allowed_domains=allowed_domains, require_https=require_https)
+
     urls_raw = os.getenv("REMOTE_RDS_URLS", "").strip()
     if not urls_raw:
         logger.info("No REMOTE_RDS_URLS defined, skipping remote download")
