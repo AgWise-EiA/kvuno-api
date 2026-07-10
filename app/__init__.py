@@ -194,6 +194,13 @@ def create_app():
     # Initialize the database
     init_db(app)
 
+    # Run pending Alembic migrations
+    # Defaults to false in production, true otherwise
+    default_migrate = 'false' if os.getenv('FLASK_ENV', 'development') == 'production' else 'true'
+    if os.getenv('RUN_MIGRATION', default_migrate).lower() == 'true':
+        with app.app_context():
+            run_migrations()
+
     @app.template_filter('datetime')
     def datetime_filter(ts):
         from datetime import datetime
