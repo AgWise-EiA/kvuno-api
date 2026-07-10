@@ -75,9 +75,9 @@ This task list is derived from `docs/SECURITY.md` and is intended to guide remed
 
 ## Long-Term (✅ Complete)
 
-- [x] Disable automatic startup migrations in production.
-- [x] Default to `RUN_MIGRATION=false` when `FLASK_ENV=production`.
-- [x] Development environments still auto-migrate by default.
+- [x] Remove automatic startup migrations from `app/__init__.py`.
+- [x] Create standalone migration runner at `scripts/run_migrations.py`.
+- [x] Production: run `python scripts/run_migrations.py` as a separate deploy step before starting the app.
 
 - [x] Add security headers for all responses.
 - [x] Content Security Policy for HTML responses.
