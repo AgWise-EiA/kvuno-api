@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_auth
 from app.cache import invalidate_cache
 from app.config import API_PREFIX, API_VERSION, HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED, RATE_LIMIT_UPLOAD
+from app.config import MAX_FILE_SIZE, ALLOWED_EXTENSIONS
 from app.dto.upload import UploadResponse
 from app.rate_limit import limiter
 
@@ -18,12 +19,9 @@ __bp__ = "/data"
 url_prefix = API_PREFIX + API_VERSION + __bp__
 
 tag = Tag(name="ingestion", description="File upload and data ingestion")
-api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
+api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag], abp_security=[{"jwt": []}])
 
 DATA_DIR = HOUSEKEEPING_DATA_DIR
-
-ALLOWED_EXTENSIONS = {'.rds', '.parquet'}
-MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE_MB', '20')) * 1024 * 1024
 
 
 def _read_columns(path: str, ext: str):
@@ -41,7 +39,7 @@ def _process_uploaded_file(f):
     if not f.filename:
         return {"error": "Empty filename"}, 400
 
-    ext = os.path.splitext(f.filename)[1].lower()
+    ext = str(os.path.splitext(f.filename)[1].lower())
     if ext not in ALLOWED_EXTENSIONS:
         return {"error": f"Unsupported extension {ext}. Allowed: {ALLOWED_EXTENSIONS}"}, 400
 
@@ -49,7 +47,8 @@ def _process_uploaded_file(f):
     size = f.tell()
     f.seek(0)
     if size > MAX_FILE_SIZE:
-        return {"error": f"File too large ({size / 1024 / 1024:.1f} MB). Maximum allowed: {MAX_FILE_SIZE / 1024 / 1024:.0f} MB"}, 413
+        return {
+            "error": f"File too large ({size / 1024 / 1024:.1f} MB). Maximum allowed: {MAX_FILE_SIZE / 1024 / 1024:.0f} MB"}, 413
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -72,13 +71,17 @@ def _process_uploaded_file(f):
 
     return UploadResponse(
         message="File accepted for processing" if HOUSEKEEPING_ENABLED
-                else "File saved. Set HOUSEKEEPING_ENABLED=true and start a Celery worker for background processing.",
+        else "File saved. Set HOUSEKEEPING_ENABLED=true and start a Celery worker for background processing.",
         file=unique_name,
         columns=columns,
     )
 
 
-@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}, 401: {"description": "Authentication required"}, 413: {"description": "File too large"}})
+@api.post('/upload',
+          responses={202: UploadBatchResponse, 400: {"description": "Upload error"},
+                     401: {"description": "Authentication required"}, 413: {"description": "File too large"}},
+          summary="Upload RDS/Parquet files for ingestion",
+          description="Upload one or more .rds or .parquet files. Each file is validated, saved, and processed in the background by a Celery worker.")
 @require_auth
 @limiter.limit(RATE_LIMIT_UPLOAD)
 def upload_file():
