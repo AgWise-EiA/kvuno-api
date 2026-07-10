@@ -333,6 +333,16 @@ def register_app_routes(app):
         jobs = _load_jobs()
         return jsonify(jobs=jobs)
 
+    # ── Auth UI ────────────────────────────────────────────────
+
+    @app.route('/ui/login', methods=['GET'])
+    def ui_login():
+        return render_template('login.html')
+
+    @app.route('/ui/register', methods=['GET'])
+    def ui_register():
+        return render_template('register.html')
+
     @app.route('/ui/jobs/events', methods=['GET'])
     @require_auth
     def ui_jobs_events():
