@@ -15,7 +15,7 @@ url_prefix = API_PREFIX + API_VERSION + __bp__
 
 tag = Tag(name="quality", description="Data quality endpoints")
 
-api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag])
+api = APIBlueprint(__bp__, __name__, url_prefix=url_prefix, abp_tags=[tag], abp_security=[{"jwt": []}])
 
 shared_logger = SharedLogger()
 logger = shared_logger.get_logger()
@@ -37,7 +37,9 @@ class ConflictListResponse(PaginatedResponse[ImportConflictRecord]):
 
 
 @api.get('/stats',
-         responses={200: QualityStatsResponse, 401: Unauthorized})
+         responses={200: QualityStatsResponse, 401: Unauthorized},
+         summary="Get data quality statistics",
+         description="Return aggregate quality metrics including total records, conflicts, file count, coordinate coverage, and breakdowns by country and source.")
 def get_quality_stats():
     try:
         stats = repo.get_stats()
@@ -48,7 +50,9 @@ def get_quality_stats():
 
 
 @api.get('/conflicts',
-         responses={200: ConflictListResponse, 401: Unauthorized})
+         responses={200: ConflictListResponse, 401: Unauthorized},
+         summary="List import conflicts",
+         description="Return paginated list of import conflicts with optional filtering.")
 def get_conflicts(query: QualityFilter):
     page = int(request.args.get('page', default=1, type=int))
     per_page = int(request.args.get('per_page', default=50, type=int))
