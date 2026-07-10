@@ -116,6 +116,25 @@ services:
       - db
       - redis
 
+  migrate:
+    container_name: kvuno-migrate
+    image: masgeek/kvuno-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python3", "scripts/run_migrations.py"]
+    restart: no
+    environment:
+      DB_DRIVER: ${DB_DRIVER:-postgresql}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+    depends_on:
+      db:
+        condition: service_started
+
   redis:
     container_name: kvuno-redis
     hostname: redis
