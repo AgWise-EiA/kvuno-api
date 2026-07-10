@@ -13,3 +13,5 @@ node_modules/
 .pnpm-store/
 
 .aider*
+.venv-linux
+session-ses*

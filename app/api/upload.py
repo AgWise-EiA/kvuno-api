@@ -8,6 +8,7 @@ from flask import request
 from flask_openapi3 import Tag, APIBlueprint
 from pydantic import BaseModel, Field
 
+from app.auth import require_auth
 from app.cache import invalidate_cache
 from app.config import API_PREFIX, API_VERSION, HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED
 from app.dto.upload import UploadResponse
@@ -76,7 +77,8 @@ def _process_uploaded_file(f):
     )
 
 
-@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}, 413: {"description": "File too large"}})
+@api.post('/upload', responses={202: UploadBatchResponse, 400: {"description": "Upload error"}, 401: {"description": "Authentication required"}, 413: {"description": "File too large"}})
+@require_auth
 def upload_file():
     """Upload one or more RDS or Parquet files for processing.
 

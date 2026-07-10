@@ -1,8 +1,17 @@
 """Security regression tests."""
 
 import os
+from contextlib import contextmanager
 
+from flask import Flask
 from werkzeug.utils import safe_join
+
+
+@contextmanager
+def _test_request_context(headers=None):
+    app = Flask(__name__)
+    with app.test_request_context(headers=headers or {}):
+        yield
 
 
 class TestPathTraversalNpmServe:
@@ -74,3 +83,53 @@ class TestPathSafety:
         assert '.parquet' in ALLOWED_EXTENSIONS
         assert '.py' not in ALLOWED_EXTENSIONS
         assert '.json' not in ALLOWED_EXTENSIONS
+
+
+class TestBcryptHashing:
+    def test_password_hash_is_not_plaintext(self):
+        import bcrypt
+        password = b"securePass123"
+        password_hash = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
+        assert password_hash != "securePass123"
+        assert password_hash.startswith("$2b$")
+        assert bcrypt.checkpw(password, password_hash.encode('utf-8'))
+
+    def test_different_passwords_produce_different_hashes(self):
+        import bcrypt
+        h1 = bcrypt.hashpw(b"password1", bcrypt.gensalt())
+        h2 = bcrypt.hashpw(b"password2", bcrypt.gensalt())
+        assert h1 != h2
+
+
+class TestGetCurrentUser:
+    def test_returns_none_without_auth_header(self):
+        from app.api.user import get_current_user
+        with _test_request_context(headers={}):
+            assert get_current_user() is None
+
+    def test_returns_none_with_empty_auth_header(self):
+        from app.api.user import get_current_user
+        with _test_request_context(headers={"Authorization": ""}):
+            assert get_current_user() is None
+
+    def test_returns_none_with_non_bearer_header(self):
+        from app.api.user import get_current_user
+        with _test_request_context(headers={"Authorization": "Basic dXNlcjpwYXNz"}):
+            assert get_current_user() is None
+
+
+class TestPaginationBounds:
+    def test_clamps_high_per_page(self):
+        from app.api.planting_data import _clamp_per_page, MAX_PER_PAGE
+        assert _clamp_per_page(1000) == MAX_PER_PAGE
+        assert _clamp_per_page(MAX_PER_PAGE) == MAX_PER_PAGE
+
+    def test_clamps_low_per_page(self):
+        from app.api.planting_data import _clamp_per_page
+        assert _clamp_per_page(0) == 1
+        assert _clamp_per_page(-1) == 1
+
+    def test_accepts_normal_per_page(self):
+        from app.api.planting_data import _clamp_per_page
+        assert _clamp_per_page(50) == 50
+        assert _clamp_per_page(100) == 100

@@ -2,11 +2,39 @@ from typing import Any, Optional
 import datetime
 
 from geoalchemy2.types import Geometry
-from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, PrimaryKeyConstraint, REAL, String, UniqueConstraint, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, JSON, PrimaryKeyConstraint, REAL, String, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    __tablename__ = 'users'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='users_pkey'),
+        UniqueConstraint('username', name='users_username_key'),
+        UniqueConstraint('email', name='users_email_key'),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
+
+
+class UserToken(Base):
+    __tablename__ = 'user_tokens'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='user_tokens_pkey'),
+        Index('idx_user_tokens_token', 'token'),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey('users.id'), nullable=False)
+    token: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'))
 
 
 class FileImport(Base):

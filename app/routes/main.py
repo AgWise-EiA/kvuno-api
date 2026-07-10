@@ -13,6 +13,7 @@ from werkzeug.utils import safe_join
 
 from pathlib import Path
 
+from app.auth import require_auth
 from app.config import HOUSEKEEPING_DATA_DIR, HOUSEKEEPING_ENABLED
 from app.models.database_conn import MyDb
 from app.models.kvuno import PlantingRecommendation
@@ -221,6 +222,7 @@ def register_app_routes(app):
         return jsonify(success=True)
 
     @app.route('/ui/upload/complete', methods=['POST'])
+    @require_auth
     def upload_resumable_complete():
         """Merge chunks into final file and return column preview."""
         body = request.get_json(silent=True) or {}
@@ -265,6 +267,7 @@ def register_app_routes(app):
         return jsonify(file=unique_name, columns=columns, rows=rows)
 
     @app.route('/ui/process', methods=['POST'])
+    @require_auth
     def upload_ui_process():
         body = request.get_json(silent=True) or {}
         file_name = body.get('file')

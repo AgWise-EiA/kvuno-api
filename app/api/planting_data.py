@@ -43,11 +43,18 @@ class ClustersResponse(BaseModel):
     total: int = Field(0, description="Total points represented")
 
 
+MAX_PER_PAGE = 500
+
+
+def _clamp_per_page(value: int) -> int:
+    return max(1, min(value, MAX_PER_PAGE))
+
+
 @api.get('',
          responses={200: PlantingRecommendationResponse, 401: Unauthorized})
 def get_data(query: PlantingDataFilter):
-    page = int(request.args.get('page', default=1, type=int))
-    per_page = int(request.args.get('per_page', default=50, type=int))
+    page = max(1, int(request.args.get('page', default=1, type=int)))
+    per_page = _clamp_per_page(int(request.args.get('per_page', default=50, type=int)))
 
     try:
         paginated_data = repo.get_paginated_data(query, page, per_page)

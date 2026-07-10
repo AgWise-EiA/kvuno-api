@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(..., description="Desired username", examples=["johndoe"])
+    username: str = Field(..., min_length=3, max_length=100, description="Desired username", examples=["johndoe"])
     email: str = Field(..., description="Email address", examples=["john@example.com"])
-    password: str = Field(..., description="Password", examples=["securePass123"])
+    password: str = Field(..., min_length=8, description="Password", examples=["securePass123"])
 
 
 class RegisterResponse(BaseModel):
@@ -19,3 +19,4 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     msg: str = Field(..., description="Login result message", examples=["login success"])
+    access_token: str = Field(..., description="Bearer token for authenticated requests", examples=["a1b2c3d4..."])
